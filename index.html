@@ -48,7 +48,7 @@
                       color:#fff;border-radius:8px;padding:6px 11px;font-size:13px}
   .top-actions button:hover{background:rgba(255,255,255,.2)}
 
-  .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);
            border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:40px}
   .sum{background:var(--card);padding:16px 18px}
   .sum dt{font-size:12.5px;color:var(--ink-3);margin-bottom:6px}
@@ -63,6 +63,11 @@
   nav.tabs button{background:none;border:0;padding:9px 14px;font-size:14.5px;font-weight:600;
                   color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
   nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+  .tc{display:none;margin-left:6px;font-size:11.5px;font-weight:700;line-height:1;
+      background:var(--line-2);color:var(--ink-2);border-radius:20px;padding:3px 7px;
+      vertical-align:middle}
+  .tc.on{display:inline-block}
+  .tc.alert{background:var(--late-bg);color:var(--late)}
 
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
   .toolbar input[type=search],.toolbar select{background:var(--card);border:1px solid var(--line);
@@ -234,7 +239,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v6</span>
+      <span class="ver">v7</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -249,11 +254,11 @@
   <dl class="summary" id="summary"></dl>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" aria-selected="true" data-tab="items">물품 리스트</button>
-    <button role="tab" aria-selected="false" data-tab="daily">일일 점검</button>
-    <button role="tab" aria-selected="false" data-tab="buy">구매 리스트</button>
-    <button role="tab" aria-selected="false" data-tab="stock">재고 관리</button>
-    <button role="tab" aria-selected="false" data-tab="stats">총계</button>
+    <button role="tab" aria-selected="true" data-tab="items">물품 리스트<span class="tc" id="tc-items"></span></button>
+    <button role="tab" aria-selected="false" data-tab="daily">일일 점검<span class="tc" id="tc-daily"></span></button>
+    <button role="tab" aria-selected="false" data-tab="buy">구매 리스트<span class="tc" id="tc-buy"></span></button>
+    <button role="tab" aria-selected="false" data-tab="stock">재고 관리<span class="tc" id="tc-stock"></span></button>
+    <button role="tab" aria-selected="false" data-tab="stats">총계<span class="tc" id="tc-stats"></span></button>
   </nav>
 
   <section id="tab-items">
@@ -348,7 +353,7 @@
   <section id="tab-stats" hidden>
     <div class="grid2">
       <div class="panel"><h3>용도별 집계</h3><table><tbody id="statCat"></tbody></table></div>
-      <div class="panel"><h3>교체 일정</h3><table><tbody id="statSchedule"></tbody></table></div>
+      <div class="panel"><h3>지금 확인할 것</h3><table><tbody id="statSchedule"></tbody></table></div>
     </div>
   </section>
 </div>
@@ -648,7 +653,8 @@ function renderSummary(){
     card("등록 물품", db.items.length + "<small>종</small>") +
     card("구매 완료액", won(boughtValue()) + "<small>원 · " + db.items.filter(function(i){return i.bought;}).length + "/" + db.items.length + "</small>") +
     card("오늘 점검", rate + "<small>% (" + done + "/" + daily.length + ")</small>") +
-    card("교체 필요", due.length + "<small>건 · 경과 " + late + "</small>", late>0);
+    card("교체 필요", due.length + "<small>건 · 경과 " + late + "</small>", late>0) +
+    card("재고 부족", db.items.filter(isLow).length + "<small>건</small>", db.items.filter(isLow).length>0);
 }
 
 function filtered(){
@@ -666,6 +672,16 @@ function filtered(){
     return (a.cat||"").localeCompare(b.cat||"","ko") || a.name.localeCompare(b.name,"ko");
   });
 }
+
+function lowBadge(it){
+  return isLow(it) ? '<span class="badge low">재고 부족</span>' : '';
+}
+function replBadge(it){
+  var s = statusOf(it);
+  return (s.key==="late" || s.key==="warn") ? '<span class="badge '+s.key+'">'+s.label+'</span>' : '';
+}
+function alertBadges(it){ return replBadge(it) + lowBadge(it); }
+function hasAlert(it){ return isLow(it) || replSoon(it); }
 
 function buyBadge(it){
   return it.bought
@@ -688,13 +704,15 @@ function rowHtml(it){
   var total = won((+it.price||0)*(+it.qty||0));
   return '<tr class="'+cls+'">'
     + '<td><div class="desktop-only"><div class="buyname"><span class="name">'+esc(it.name)+'</span>'
-        + buyBadge(it) + '</div>'
+        + buyBadge(it) + lowBadge(it) + '</div>'
         + (it.memo ? '<span class="memo">'+esc(it.memo)+'</span>' : '') + '</div>'
       + '<div class="mcard mobile-only">'
         + mrow("물품", '<span class="name">'+esc(it.name)+'</span>')
         + mrow("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>')
         + mrow("구매", buyBadge(it))
-        + mrow("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>')
+        + mrow("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
+              + (it.minQty ? ' <span class="qty num">최소 '+(+it.minQty)+esc(it.unit||"")+'</span>' : '')
+              + (isLow(it) ? ' '+lowBadge(it) : ''))
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+(it.date||"—")+'</span>')
         + mrow("구매처", link)
@@ -783,7 +801,7 @@ function renderDaily(){
       + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
       + '<span class="memo">'+esc(it.cat||"")+(it.memo?" · "+esc(it.memo):"")+'</span></span>'
       + '<span class="qty num">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
-      + (s.key==="ok"||s.key==="none" ? "" : '<span class="badge '+s.key+'">'+s.label+'</span>')
+      + alertBadges(it)
       + '</li>';
   }).join("");
   $("emptyDaily").hidden = list.length > 0;
@@ -824,7 +842,7 @@ function renderBuy(){
         + (it.bought
             ? ' · '+won((+it.price||0)*(+it.qty||0))+'원'+(it.vendor ? ' · '+esc(it.vendor) : '')+(it.date ? ' · '+it.date : '')
             : ' · 예상 '+won((+it.price||0)*(+it.qty||0))+'원')
-        + '</span></span>'
+        + '</span>' + alertBadges(it) + '</span>'
         + (it.bought ? '<button class="iconbtn buy on" data-info="'+it.id+'">정보</button>' : '')
         + '</li>';
     });
@@ -882,7 +900,7 @@ function renderStock(){
     arr.forEach(function(it){
       html += '<li>'
         + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
-          + (isLow(it) ? '<span class="badge low">재고 부족</span>' : '')
+          + replBadge(it) + lowBadge(it) + buyBadge(it)
           + (it.minQty ? '<span class="qty num">최소 '+(+it.minQty)+esc(it.unit||"")+'</span>' : '')
         + '</span>'
         + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))+'</span></span>'
@@ -906,15 +924,22 @@ function renderStats(){
   var byCat = {};
   db.items.forEach(function(it){
     var c = it.cat || "미분류";
-    if(!byCat[c]) byCat[c] = {n:0, qty:0, sum:0};
+    if(!byCat[c]) byCat[c] = {n:0, qty:0, sum:0, low:0, due:0, bought:0};
     byCat[c].n++; byCat[c].qty += (+it.qty||0);
     byCat[c].sum += (+it.price||0)*(+it.qty||0);
+    if(isLow(it)) byCat[c].low++;
+    if(replSoon(it)) byCat[c].due++;
+    if(it.bought) byCat[c].bought++;
   });
   var total = totalValue();
   var keys = Object.keys(byCat).sort(function(a,b){ return byCat[b].sum - byCat[a].sum; });
   $("statCat").innerHTML = keys.map(function(k){
     var v = byCat[k], pct = total ? Math.round(v.sum/total*100) : 0;
-    return '<tr><td><span class="name">'+esc(k)+'</span><span class="memo">'+v.n+'종 · '+v.qty+'점</span>'
+    var flags = "";
+    if(v.due) flags += ' <span class="badge warn">교체 '+v.due+'</span>';
+    if(v.low) flags += ' <span class="badge low">부족 '+v.low+'</span>';
+    return '<tr><td><span class="name">'+esc(k)+'</span>'+flags
+      + '<span class="memo">'+v.n+'종 · '+v.qty+'점 · 구매 '+v.bought+'/'+v.n+'</span>'
       + '<div class="bar"><i style="width:'+pct+'%"></i></div></td>'
       + '<td class="right num" style="white-space:nowrap">'+won(v.sum)+'원<span class="memo">'+pct+'%</span></td></tr>';
   }).join("") + '<tr class="total-row"><td>합계</td><td class="right num">'+won(total)+'원</td></tr>';
@@ -922,7 +947,18 @@ function renderStats(){
   var due = dueItems();
   var upcoming = db.items.filter(function(it){ return statusOf(it).key === "ok"; })
     .sort(function(a,b){ return statusOf(a).d - statusOf(b).d; }).slice(0,6);
+  var lows = db.items.filter(isLow).sort(function(a,b){
+    return (a.cat||"").localeCompare(b.cat||"","ko") || a.name.localeCompare(b.name,"ko");
+  });
   var rows = "";
+  if(lows.length){
+    rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">재고 부족</td></tr>';
+    rows += lows.map(function(it){
+      return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
+        + '<td class="right"><span class="badge low">재고 부족</span>'
+        + '<span class="memo num">'+(+it.qty||0)+esc(it.unit||"")+' / 최소 '+(+it.minQty||0)+esc(it.unit||"")+'</span></td></tr>';
+    }).join("");
+  }
   if(due.length){
     rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">지금 처리할 항목</td></tr>';
     rows += due.map(function(it){
@@ -938,10 +974,31 @@ function renderStats(){
         + '<td class="right num">'+it.next+'<span class="memo">'+statusOf(it).label+'</span></td></tr>';
     }).join("");
   }
-  $("statSchedule").innerHTML = rows || '<tr><td class="empty">교체 주기가 설정된 물품이 없습니다.</td></tr>';
+  $("statSchedule").innerHTML = rows || '<tr><td class="empty">지금 확인할 항목이 없습니다.</td></tr>';
 }
 
-function renderAll(){ renderCats(); renderSummary(); renderItems(); renderDaily(); renderBuy(); renderStock(); renderStats(); }
+function renderTabCounts(){
+  var alerts = db.items.filter(hasAlert).length;
+  var daily = db.items.filter(function(i){ return i.daily; });
+  var left = daily.length - (db.checks[ymd(today())]||[]).length;
+  var todo = db.items.filter(function(i){ return !i.bought; }).length;
+  var low = db.items.filter(isLow).length;
+  var set = function(id, n, alert){
+    var el = $("tc-"+id);
+    el.textContent = n;
+    el.className = "tc" + (n > 0 ? " on" : "") + (alert ? " alert" : "");
+  };
+  set("items", alerts, true);
+  set("daily", left, false);
+  set("buy", todo, false);
+  set("stock", low, true);
+  set("stats", 0, false);
+}
+
+function renderAll(){
+  renderCats(); renderSummary(); renderItems(); renderDaily();
+  renderBuy(); renderStock(); renderStats(); renderTabCounts();
+}
 
 /* ───────── 탭 ───────── */
 function goTab(name){
