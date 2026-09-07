@@ -56,7 +56,10 @@
   .sum dd small{font-size:13px;font-weight:500;color:var(--ink-3);margin-left:3px}
   .sum.alert dd{color:var(--late)}
 
-  nav.tabs{display:flex;gap:2px;margin:22px 0 14px;border-bottom:1px solid var(--line)}
+  nav.tabs{display:flex;gap:2px;margin:22px 0 14px;border-bottom:1px solid var(--line);
+           overflow-x:auto;-webkit-overflow-scrolling:touch}
+  nav.tabs::-webkit-scrollbar{display:none}
+  nav.tabs button{flex:0 0 auto;white-space:nowrap}
   nav.tabs button{background:none;border:0;padding:9px 14px;font-size:14.5px;font-weight:600;
                   color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
   nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
@@ -99,6 +102,18 @@
   .badge.buy{color:#1D62C4;background:#E4EDFA}
   .badge.nobuy{color:var(--ink-3);background:var(--line-2)}
   .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  @keyframes dim{0%,100%{opacity:1}50%{opacity:.3}}
+  .badge.low{color:#fff;background:var(--late);animation:dim 1.3s ease-in-out infinite}
+  .repl{display:block;font-size:12.5px;color:var(--ink-3);margin-top:3px}
+  .repl.soon{color:var(--ok);font-weight:600}
+  .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);
+           border-radius:9px;overflow:hidden;flex:none;background:var(--card)}
+  .stepper button{width:36px;height:36px;background:none;border:0;font-size:18px;
+                  color:var(--ink-2);line-height:1}
+  .stepper button:hover{background:var(--line-2);color:var(--ink)}
+  .stepper .qv{min-width:56px;text-align:center;font-weight:700;font-size:14px;
+               font-variant-numeric:tabular-nums;border-left:1px solid var(--line);
+               border-right:1px solid var(--line);padding:0 4px;line-height:36px}
   .infolist{list-style:none;margin:0;padding:0}
   .infolist li{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:14.5px}
   .infolist li:last-child{border-bottom:0}
@@ -219,7 +234,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v5</span>
+      <span class="ver">v6</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -237,6 +252,7 @@
     <button role="tab" aria-selected="true" data-tab="items">물품 리스트</button>
     <button role="tab" aria-selected="false" data-tab="daily">일일 점검</button>
     <button role="tab" aria-selected="false" data-tab="buy">구매 리스트</button>
+    <button role="tab" aria-selected="false" data-tab="stock">재고 관리</button>
     <button role="tab" aria-selected="false" data-tab="stats">총계</button>
   </nav>
 
@@ -276,6 +292,7 @@
       <span class="qty num" id="progText"></span>
       <button class="btn ghost sm" id="btnAllCheck">전체 체크</button>
       <button class="btn ghost sm" id="btnResetCheck">오늘 체크 지우기</button>
+      <button class="btn sm" data-add>물품 추가</button>
     </div>
     <div class="panel">
       <ul class="checklist" id="checklist"></ul>
@@ -296,10 +313,32 @@
         <option value="todo">아직 안 산 것만</option>
         <option value="done">구매 완료만</option>
       </select>
+      <button class="btn sm" data-add>물품 추가</button>
     </div>
     <div class="panel">
       <ul class="checklist" id="buylist"></ul>
       <div class="empty" id="emptyBuy" hidden>
+        <strong>해당하는 품목이 없습니다</strong>
+        위 선택을 바꿔보세요.
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-stock" hidden>
+    <div class="check-head">
+      <span class="date">보유 재고</span>
+      <div class="progress"><i id="stockBar" style="width:0%"></i></div>
+      <span class="qty num" id="stockText"></span>
+      <select id="stockFilter">
+        <option value="">전체 보기</option>
+        <option value="low">재고 부족만</option>
+        <option value="soon">교체 임박만</option>
+      </select>
+      <button class="btn sm" data-add>물품 추가</button>
+    </div>
+    <div class="panel">
+      <ul class="checklist" id="stocklist"></ul>
+      <div class="empty" id="emptyStock" hidden>
         <strong>해당하는 품목이 없습니다</strong>
         위 선택을 바꿔보세요.
       </div>
@@ -335,9 +374,14 @@
         </div>
       </div>
       <div class="f2">
+        <div class="field">
+          <label for="fMin">최소 수량</label>
+          <input id="fMin" type="number" min="0" step="1" placeholder="0">
+          <p class="hint">이 수량 이하로 떨어지면 재고 관리에서 부족 표시가 깜빡입니다. 0이면 표시하지 않습니다.</p>
+        </div>
         <div class="field"><label for="fPrice">가격 (개당, 원)</label><input id="fPrice" type="number" min="0" step="100" placeholder="0"></div>
-        <div class="field"><label for="fDate">구매일</label><input id="fDate" type="date"></div>
       </div>
+      <div class="field"><label for="fDate">구매일</label><input id="fDate" type="date"></div>
       <div class="field"><label for="fUrl">구매 사이트 링크</label><input id="fUrl" type="url" placeholder="https://"></div>
       <div class="f2">
         <div class="field">
@@ -794,6 +838,70 @@ function renderBuy(){
   $("buyText").textContent = done + " / " + all;
 }
 
+function isLow(it){
+  return (+it.minQty||0) > 0 && (+it.qty||0) <= (+it.minQty||0);
+}
+function replText(it){
+  var parts = [];
+  if(it.cycle) parts.push(it.cycle + "일 주기");
+  if(it.next){
+    var s = statusOf(it);
+    parts.push("교체 " + it.next + " (" + s.label + ")");
+  }
+  return parts.length ? parts.join(" · ") : "교체 주기 없음";
+}
+function replSoon(it){
+  if(!it.next) return false;
+  var d = dday(it.next);
+  return d !== null && d <= 7;
+}
+
+function renderStock(){
+  var mode = $("stockFilter").value;
+  var list = db.items.filter(function(it){
+    if(mode === "low") return isLow(it);
+    if(mode === "soon") return replSoon(it);
+    return true;
+  }).sort(function(a,b){
+    return (a.cat||"").localeCompare(b.cat||"","ko") || a.name.localeCompare(b.name,"ko");
+  });
+
+  var groups = {};
+  list.forEach(function(it){
+    var c = it.cat || "미분류";
+    if(!groups[c]) groups[c] = [];
+    groups[c].push(it);
+  });
+
+  var html = "";
+  Object.keys(groups).sort(function(a,b){ return a.localeCompare(b,"ko"); }).forEach(function(c){
+    var arr = groups[c];
+    var lowN = arr.filter(isLow).length;
+    html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
+      + '<span class="memo">'+arr.length+'종'+(lowN ? ' · 재고 부족 '+lowN+'건' : '')+'</span></span></li>';
+    arr.forEach(function(it){
+      html += '<li>'
+        + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
+          + (isLow(it) ? '<span class="badge low">재고 부족</span>' : '')
+          + (it.minQty ? '<span class="qty num">최소 '+(+it.minQty)+esc(it.unit||"")+'</span>' : '')
+        + '</span>'
+        + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))+'</span></span>'
+        + '<span class="stepper">'
+          + '<button type="button" data-dec="'+it.id+'" aria-label="수량 줄이기">−</button>'
+          + '<span class="qv">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
+          + '<button type="button" data-inc="'+it.id+'" aria-label="수량 늘리기">+</button>'
+        + '</span></li>';
+    });
+  });
+  $("stocklist").innerHTML = html;
+  $("emptyStock").hidden = list.length > 0;
+
+  var all = db.items.length;
+  var low = db.items.filter(isLow).length;
+  $("stockBar").style.width = (all ? Math.round((all-low)/all*100) : 0) + "%";
+  $("stockText").textContent = low ? ("부족 " + low + "건") : "부족 없음";
+}
+
 function renderStats(){
   var byCat = {};
   db.items.forEach(function(it){
@@ -833,14 +941,14 @@ function renderStats(){
   $("statSchedule").innerHTML = rows || '<tr><td class="empty">교체 주기가 설정된 물품이 없습니다.</td></tr>';
 }
 
-function renderAll(){ renderCats(); renderSummary(); renderItems(); renderDaily(); renderBuy(); renderStats(); }
+function renderAll(){ renderCats(); renderSummary(); renderItems(); renderDaily(); renderBuy(); renderStock(); renderStats(); }
 
 /* ───────── 탭 ───────── */
 function goTab(name){
   document.querySelectorAll("nav.tabs button").forEach(function(x){
     x.setAttribute("aria-selected", x.dataset.tab===name ? "true" : "false");
   });
-  ["items","daily","buy","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
+  ["items","daily","buy","stock","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
 }
 document.querySelectorAll("nav.tabs button").forEach(function(b){
   b.addEventListener("click", function(){ goTab(b.dataset.tab); });
@@ -859,6 +967,7 @@ function openModal(it){
   $("fName").value  = it ? it.name : "";
   $("fCatIn").value = it ? (it.cat||"") : "";
   $("fQty").value   = it ? it.qty : 1;
+  $("fMin").value   = it && it.minQty ? it.minQty : "";
   $("fUnit").value  = it ? (it.unit||"개") : "개";
   $("fPrice").value = it ? (it.price||"") : "";
   $("fDate").value  = it ? (it.date||"") : "";
@@ -873,6 +982,9 @@ function openModal(it){
 }
 $("btnAdd").addEventListener("click", function(){ openModal(null); });
 $("fabAdd").addEventListener("click", function(){ goTab("items"); openModal(null); });
+document.querySelectorAll("[data-add]").forEach(function(b){
+  b.addEventListener("click", function(){ openModal(null); });
+});
 
 $("btnSave").addEventListener("click", function(){
   var name = $("fName").value.trim();
@@ -887,6 +999,7 @@ $("btnSave").addEventListener("click", function(){
     name: name,
     cat: $("fCatIn").value.trim() || "미분류",
     qty: +$("fQty").value || 0,
+    minQty: +$("fMin").value || 0,
     unit: $("fUnit").value.trim() || "개",
     price: +$("fPrice").value || 0,
     date: date, url: $("fUrl").value.trim(),
@@ -966,6 +1079,31 @@ $("tbody").addEventListener("click", function(e){
 
 ["q","fCat","fStatus"].forEach(function(id){ $(id).addEventListener("input", renderItems); });
 $("fGroup").addEventListener("change", renderItems);
+
+/* ───────── 재고 수량 조절 ───────── */
+var qtyTimers = {};
+function changeQty(id, delta){
+  var it = db.items.filter(function(x){ return x.id === id; })[0];
+  if(!it) return;
+  var next = (+it.qty||0) + delta;
+  if(next < 0) return;
+  it.qty = next;
+  renderAll();
+  LS.set(CACHE_KEY, db);
+  if(!connected()) return;
+  clearTimeout(qtyTimers[id]);
+  qtyTimers[id] = setTimeout(function(){
+    var cur = db.items.filter(function(x){ return x.id === id; })[0];
+    if(cur) push("upsert", cur);
+  }, 800);
+}
+$("stocklist").addEventListener("click", function(e){
+  var inc = e.target.getAttribute("data-inc");
+  if(inc){ changeQty(inc, 1); return; }
+  var dec = e.target.getAttribute("data-dec");
+  if(dec){ changeQty(dec, -1); }
+});
+$("stockFilter").addEventListener("change", renderStock);
 
 /* ───────── 구매 정보 ───────── */
 var buyId = null;
