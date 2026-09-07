@@ -169,6 +169,11 @@
   .ml{flex:0 0 58px;font-size:12.5px;color:var(--ink-3)}
   .mv{flex:1;min-width:0;font-size:14px;word-break:break-word}
 
+  .fab{display:none;position:fixed;right:16px;bottom:20px;z-index:40;align-items:center;gap:7px;
+       background:var(--ink);color:#fff;border:0;border-radius:99px;padding:14px 20px;
+       font-size:15px;font-weight:700;box-shadow:0 8px 22px rgba(22,34,46,.3)}
+  .fab span{font-size:19px;line-height:1}
+
   .mobile-only{display:none}
   @media (max-width:760px){
     .summary{grid-template-columns:1fr 1fr}
@@ -186,10 +191,12 @@
     table.cards tr.row-warn{border-left:3px solid var(--warn)}
     table.cards tr.row-late{border-left:3px solid var(--late)}
     table.cards td.right,table.cards .rowbtns{text-align:left;justify-content:flex-start}
+    table.cards td.desktop-only,table.cards .desktop-only{display:none}
     table.cards tr.grp{padding:0;border-left:0}
     table.cards tr.grp td{padding:9px 12px}
     .mcard{display:block}
     .rowbtns{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+    .fab{display:flex}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
@@ -200,7 +207,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v3</span>
+      <span class="ver">v4</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -381,6 +388,8 @@
     </footer>
   </div>
 </div>
+
+<button class="fab" id="fabAdd" type="button"><span>+</span> 물품 추가</button>
 
 <div class="toast" id="toast"></div>
 
@@ -733,6 +742,7 @@ function openModal(it){
   setTimeout(function(){ $("fName").focus(); }, 30);
 }
 $("btnAdd").addEventListener("click", function(){ openModal(null); });
+$("fabAdd").addEventListener("click", function(){ goTab("items"); openModal(null); });
 
 $("btnSave").addEventListener("click", function(){
   var name = $("fName").value.trim();
