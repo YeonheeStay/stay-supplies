@@ -109,6 +109,9 @@
   .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   @keyframes dim{0%,100%{opacity:1}50%{opacity:.3}}
   .badge.low{color:#fff;background:var(--late);animation:dim 1.3s ease-in-out infinite}
+  tr.row-low td:first-child{box-shadow:inset 3px 0 0 var(--late)}
+  .stepper .qv.low{color:var(--late);animation:dim 1.3s ease-in-out infinite}
+  li.lowline{background:#FDF4F3}
   .repl{display:block;font-size:12.5px;color:var(--ink-3);margin-top:3px}
   .repl.soon{color:var(--ok);font-weight:600}
   .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);
@@ -221,7 +224,7 @@
     table.cards td{border:0;padding:2px 0}
     table.cards td:first-child{box-shadow:none !important}
     table.cards tr.row-warn{border-left:3px solid var(--warn)}
-    table.cards tr.row-late{border-left:3px solid var(--late)}
+    table.cards tr.row-late,table.cards tr.row-low{border-left:3px solid var(--late)}
     table.cards td.right,table.cards .rowbtns{text-align:left;justify-content:flex-start}
     table.cards td.desktop-only,table.cards .desktop-only{display:none}
     table.cards tr.grp{padding:0;border-left:0}
@@ -239,7 +242,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v7</span>
+      <span class="ver">v8</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -280,7 +283,7 @@
       <table id="tbl" class="cards">
         <thead>
           <tr>
-            <th>물품</th><th>용도</th><th class="right">수량</th><th class="right">가격</th>
+            <th>물품</th><th>용도</th><th class="right">재고 / 필요</th><th class="right">가격</th>
             <th>구매일</th><th>구매처</th><th>다음 교체일</th><th>상태</th><th></th>
           </tr>
         </thead>
@@ -371,7 +374,7 @@
           <datalist id="catList"></datalist>
         </div>
         <div class="field">
-          <label for="fQty">수량</label>
+          <label for="fQty">필요 수량</label>
           <div class="f2" style="gap:6px">
             <input id="fQty" type="number" min="0" step="1" value="1">
             <input id="fUnit" placeholder="개">
@@ -380,9 +383,9 @@
       </div>
       <div class="f2">
         <div class="field">
-          <label for="fMin">최소 수량</label>
-          <input id="fMin" type="number" min="0" step="1" placeholder="0">
-          <p class="hint">이 수량 이하로 떨어지면 재고 관리에서 부족 표시가 깜빡입니다. 0이면 표시하지 않습니다.</p>
+          <label for="fStock">현재 재고</label>
+          <input id="fStock" type="number" min="0" step="1" placeholder="0">
+          <p class="hint">재고가 필요 수량보다 적으면 재고 부족으로 표시됩니다.</p>
         </div>
         <div class="field"><label for="fPrice">가격 (개당, 원)</label><input id="fPrice" type="number" min="0" step="100" placeholder="0"></div>
       </div>
@@ -449,7 +452,7 @@
       <p class="movehead"><strong id="buyItemName"></strong></p>
       <div class="f2">
         <div class="field"><label for="bDate">구매일자</label><input id="bDate" type="date"></div>
-        <div class="field"><label for="bQty">구매 수량</label><input id="bQty" type="number" min="0" step="1"></div>
+        <div class="field"><label for="bQty">필요 수량</label><input id="bQty" type="number" min="0" step="1"></div>
       </div>
       <div class="field">
         <label for="bPrice">금액 (개당, 원)</label>
@@ -700,6 +703,7 @@ function mrow(label, value){
 function rowHtml(it){
   var s = statusOf(it);
   var cls = s.key==="late" ? "row-late" : (s.key==="warn" ? "row-warn" : "");
+  if(isLow(it)) cls += " row-low";
   var link = it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">바로가기</a>' : '—';
   var total = won((+it.price||0)*(+it.qty||0));
   return '<tr class="'+cls+'">'
@@ -710,8 +714,8 @@ function rowHtml(it){
         + mrow("물품", '<span class="name">'+esc(it.name)+'</span>')
         + mrow("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>')
         + mrow("구매", buyBadge(it))
-        + mrow("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
-              + (it.minQty ? ' <span class="qty num">최소 '+(+it.minQty)+esc(it.unit||"")+'</span>' : '')
+        + mrow("재고", '<span class="num">'+stockOf(it)+esc(it.unit||"")
+              +' / 필요 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
               + (isLow(it) ? ' '+lowBadge(it) : ''))
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+(it.date||"—")+'</span>')
@@ -721,7 +725,7 @@ function rowHtml(it){
         + (it.memo ? mrow("메모", esc(it.memo)) : "")
       + '</div></td>'
     + '<td class="desktop-only"><span class="cat">'+esc(it.cat||"미분류")+'</span></td>'
-    + '<td class="right num desktop-only">'+(+it.qty||0)+esc(it.unit||"")+'</td>'
+    + '<td class="right num desktop-only">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</td>'
     + '<td class="right num desktop-only">'+won(it.price)+'</td>'
     + '<td class="num desktop-only">'+(it.date||"—")+'</td>'
     + '<td class="desktop-only">'+link+'</td>'
@@ -856,8 +860,12 @@ function renderBuy(){
   $("buyText").textContent = done + " / " + all;
 }
 
+function stockOf(it){
+  return (it.stock === undefined || it.stock === null || it.stock === "")
+    ? (+it.qty||0) : (+it.stock||0);
+}
 function isLow(it){
-  return (+it.minQty||0) > 0 && (+it.qty||0) <= (+it.minQty||0);
+  return stockOf(it) < (+it.qty||0);
 }
 function replText(it){
   var parts = [];
@@ -898,15 +906,15 @@ function renderStock(){
     html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
       + '<span class="memo">'+arr.length+'종'+(lowN ? ' · 재고 부족 '+lowN+'건' : '')+'</span></span></li>';
     arr.forEach(function(it){
-      html += '<li>'
+      html += '<li class="'+(isLow(it)?"lowline":"")+'">'
         + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
           + replBadge(it) + lowBadge(it) + buyBadge(it)
-          + (it.minQty ? '<span class="qty num">최소 '+(+it.minQty)+esc(it.unit||"")+'</span>' : '')
+          + '<span class="qty num">필요 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
         + '</span>'
         + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))+'</span></span>'
         + '<span class="stepper">'
           + '<button type="button" data-dec="'+it.id+'" aria-label="수량 줄이기">−</button>'
-          + '<span class="qv">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
+          + '<span class="qv'+(isLow(it)?" low":"")+'">'+stockOf(it)+esc(it.unit||"")+'</span>'
           + '<button type="button" data-inc="'+it.id+'" aria-label="수량 늘리기">+</button>'
         + '</span></li>';
     });
@@ -925,7 +933,7 @@ function renderStats(){
   db.items.forEach(function(it){
     var c = it.cat || "미분류";
     if(!byCat[c]) byCat[c] = {n:0, qty:0, sum:0, low:0, due:0, bought:0};
-    byCat[c].n++; byCat[c].qty += (+it.qty||0);
+    byCat[c].n++; byCat[c].qty += stockOf(it);
     byCat[c].sum += (+it.price||0)*(+it.qty||0);
     if(isLow(it)) byCat[c].low++;
     if(replSoon(it)) byCat[c].due++;
@@ -939,7 +947,7 @@ function renderStats(){
     if(v.due) flags += ' <span class="badge warn">교체 '+v.due+'</span>';
     if(v.low) flags += ' <span class="badge low">부족 '+v.low+'</span>';
     return '<tr><td><span class="name">'+esc(k)+'</span>'+flags
-      + '<span class="memo">'+v.n+'종 · '+v.qty+'점 · 구매 '+v.bought+'/'+v.n+'</span>'
+      + '<span class="memo">'+v.n+'종 · 재고 '+v.qty+'점 · 구매 '+v.bought+'/'+v.n+'</span>'
       + '<div class="bar"><i style="width:'+pct+'%"></i></div></td>'
       + '<td class="right num" style="white-space:nowrap">'+won(v.sum)+'원<span class="memo">'+pct+'%</span></td></tr>';
   }).join("") + '<tr class="total-row"><td>합계</td><td class="right num">'+won(total)+'원</td></tr>';
@@ -956,7 +964,7 @@ function renderStats(){
     rows += lows.map(function(it){
       return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right"><span class="badge low">재고 부족</span>'
-        + '<span class="memo num">'+(+it.qty||0)+esc(it.unit||"")+' / 최소 '+(+it.minQty||0)+esc(it.unit||"")+'</span></td></tr>';
+        + '<span class="memo num">재고 '+stockOf(it)+esc(it.unit||"")+' / 필요 '+(+it.qty||0)+esc(it.unit||"")+'</span></td></tr>';
     }).join("");
   }
   if(due.length){
@@ -1024,7 +1032,7 @@ function openModal(it){
   $("fName").value  = it ? it.name : "";
   $("fCatIn").value = it ? (it.cat||"") : "";
   $("fQty").value   = it ? it.qty : 1;
-  $("fMin").value   = it && it.minQty ? it.minQty : "";
+  $("fStock").value = it ? stockOf(it) : 1;
   $("fUnit").value  = it ? (it.unit||"개") : "개";
   $("fPrice").value = it ? (it.price||"") : "";
   $("fDate").value  = it ? (it.date||"") : "";
@@ -1056,7 +1064,7 @@ $("btnSave").addEventListener("click", function(){
     name: name,
     cat: $("fCatIn").value.trim() || "미분류",
     qty: +$("fQty").value || 0,
-    minQty: +$("fMin").value || 0,
+    stock: +$("fStock").value || 0,
     unit: $("fUnit").value.trim() || "개",
     price: +$("fPrice").value || 0,
     date: date, url: $("fUrl").value.trim(),
@@ -1142,9 +1150,9 @@ var qtyTimers = {};
 function changeQty(id, delta){
   var it = db.items.filter(function(x){ return x.id === id; })[0];
   if(!it) return;
-  var next = (+it.qty||0) + delta;
+  var next = stockOf(it) + delta;
   if(next < 0) return;
-  it.qty = next;
+  it.stock = next;
   renderAll();
   LS.set(CACHE_KEY, db);
   if(!connected()) return;
@@ -1314,11 +1322,12 @@ $("btnResetCheck").addEventListener("click", function(){
 
 /* ───────── CSV ───────── */
 $("btnCsv").addEventListener("click", function(){
-  var head = ["물품","용도","수량","단위","개당가격","총액","구매일","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
+  var head = ["물품","용도","재고","필요수량","단위","개당가격","총액","구매완료","구매일","구매처","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
   var lines = [head.join(",")];
   filtered().forEach(function(it){
-    var row = [it.name, it.cat, it.qty, it.unit, it.price, (+it.price||0)*(+it.qty||0),
-               it.date, it.url, it.cycle, it.next, statusOf(it).label, it.daily?"Y":"N", it.memo];
+    var row = [it.name, it.cat, stockOf(it), it.qty, it.unit, it.price, (+it.price||0)*(+it.qty||0),
+               it.bought?"Y":"N", it.date, it.vendor, it.url, it.cycle, it.next,
+               statusOf(it).label + (isLow(it) ? " / 재고부족" : ""), it.daily?"Y":"N", it.memo];
     lines.push(row.map(function(v){
       v = (v==null ? "" : String(v));
       return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
