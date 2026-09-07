@@ -109,8 +109,8 @@
   .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   @keyframes dim{0%,100%{opacity:1}50%{opacity:.3}}
   .badge.low{color:#fff;background:var(--late);animation:dim 1.3s ease-in-out infinite}
-  .badge.full{color:#fff;background:var(--ok);animation:dim 1.3s ease-in-out infinite}
-  .stepper .qv.full{color:var(--ok);animation:dim 1.3s ease-in-out infinite}
+  .badge.full{color:#fff;background:var(--ok)}
+  .stepper .qv.full{color:var(--ok)}
   li.fullline{background:#F2F8F4}
   tr.row-low td:first-child{box-shadow:inset 3px 0 0 var(--late)}
   .stepper .qv.low{color:var(--late);animation:dim 1.3s ease-in-out infinite}
@@ -245,7 +245,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v9</span>
+      <span class="ver">v10</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -587,8 +587,16 @@ function apiPost(action, payload){
     redirect:"follow"
   }).then(function(r){ return r.json(); });
 }
+var warnedNoStock = false;
 function adopt(res){
-  db = {items: res.data.items || [], checks: res.data.checks || {}};
+  var items = res.data.items || [];
+  if(items.length && !("stock" in items[0]) && !warnedNoStock){
+    warnedNoStock = true;
+    setTimeout(function(){
+      toast("시트에 재고 열이 없습니다. Apps Script의 Code.gs를 최신본으로 바꾸고 다시 배포해 주세요");
+    }, 400);
+  }
+  db = {items: items, checks: res.data.checks || {}};
   LS.set(CACHE_KEY, db);
 }
 
