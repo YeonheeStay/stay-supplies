@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>숙소 비품 관리</title>
+<meta name="description" content="에어비앤비 숙소 비품 재고·교체주기·구매내역 관리 시스템">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{
+    --ink:#16222E;
+    --ink-2:#48596A;
+    --ink-3:#7E8D9B;
+    --line:#DFE3E0;
+    --line-2:#EDEFEC;
+    --bg:#F4F6F3;
+    --card:#FFFFFF;
+    --ok:#2F7D5C;
+    --ok-bg:#E7F2EC;
+    --warn:#B4700B;
+    --warn-bg:#FBF0DC;
+    --late:#B23A31;
+    --late-bg:#FBE9E7;
+    --accent:#16222E;
+    --r:10px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:var(--bg);color:var(--ink);
+    font-size:15px;line-height:1.5;
+    -webkit-text-size-adjust:100%;
+  }
+  h1,h2,h3,p{margin:0}
+  button,input,select,textarea{font:inherit;color:inherit}
+  button{cursor:pointer}
+  a{color:var(--ink);text-underline-offset:2px}
+  .num{font-variant-numeric:tabular-nums}
+
+  .wrap{max-width:1120px;margin:0 auto;padding:0 16px 80px}
+
+  /* ── header ── */
+  header.top{
+    background:var(--accent);color:#fff;
+    padding:20px 0 22px;margin-bottom:-28px;
+  }
+  header.top .wrap{padding-bottom:0}
+  .brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .brand h1{font-size:19px;font-weight:700;letter-spacing:-0.02em}
+  .brand span{font-size:13px;color:#9FB0BE}
+  .top-actions{display:flex;gap:6px;margin-left:auto}
+  .brand .top-actions button{
+    background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+    color:#fff;border-radius:8px;padding:6px 11px;font-size:13px;
+  }
+  .brand .top-actions button:hover{background:rgba(255,255,255,.2)}
+
+  /* ── summary ── */
+  .summary{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--line);border:1px solid var(--line);
+    border-radius:var(--r);overflow:hidden;margin-top:40px;
+  }
+  .sum{background:var(--card);padding:16px 18px}
+  .sum dt{font-size:12.5px;color:var(--ink-3);margin-bottom:6px}
+  .sum dd{margin:0;font-size:24px;font-weight:700;letter-spacing:-0.03em}
+  .sum dd small{font-size:13px;font-weight:500;color:var(--ink-3);margin-left:3px}
+  .sum.alert dd{color:var(--late)}
+
+  /* ── tabs ── */
+  nav.tabs{display:flex;gap:2px;margin:22px 0 14px;border-bottom:1px solid var(--line)}
+  nav.tabs button{
+    background:none;border:0;padding:9px 14px;font-size:14.5px;font-weight:600;
+    color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px;
+  }
+  nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--ink)}
+
+  /* ── toolbar ── */
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+  .toolbar input[type=search],.toolbar select{
+    background:var(--card);border:1px solid var(--line);border-radius:8px;
+    padding:8px 11px;font-size:14px;
+  }
+  .toolbar input[type=search]{flex:1;min-width:150px}
+  .btn{
+    background:var(--accent);color:#fff;border:0;border-radius:8px;
+    padding:9px 15px;font-size:14px;font-weight:600;
+  }
+  .btn:hover{opacity:.88}
+  .btn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+  .btn.sm{padding:5px 10px;font-size:13px;font-weight:500}
+  .btn.danger{background:var(--late)}
+
+  /* ── table ── */
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+  table{width:100%;border-collapse:collapse}
+  th{
+    text-align:left;font-size:12.5px;font-weight:600;color:var(--ink-3);
+    padding:10px 12px;border-bottom:1px solid var(--line);background:#FAFBF9;white-space:nowrap;
+  }
+  td{padding:11px 12px;border-bottom:1px solid var(--line-2);font-size:14px;vertical-align:middle}
+  tr:last-child td{border-bottom:0}
+  tbody tr.sel{background:#FAFBF9}
+  .cat{
+    display:inline-block;font-size:12px;color:var(--ink-2);
+    background:var(--line-2);border-radius:5px;padding:2px 7px;white-space:nowrap;
+  }
+  .name{font-weight:600}
+  .memo{display:block;font-size:12.5px;color:var(--ink-3);font-weight:400;margin-top:2px}
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:600;
+    padding:3px 9px;border-radius:20px;white-space:nowrap;
+  }
+  .badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+  .badge.ok{color:var(--ok);background:var(--ok-bg)}
+  .badge.warn{color:var(--warn);background:var(--warn-bg)}
+  .badge.late{color:var(--late);background:var(--late-bg)}
+  .badge.none{color:var(--ink-3);background:var(--line-2)}
+  tr.row-warn td:first-child{box-shadow:inset 3px 0 0 var(--warn)}
+  tr.row-late td:first-child{box-shadow:inset 3px 0 0 var(--late)}
+  .right{text-align:right}
+  .rowbtns{display:flex;gap:4px;justify-content:flex-end}
+  .iconbtn{background:none;border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:12.5px;color:var(--ink-2)}
+  .iconbtn:hover{border-color:var(--ink-3);color:var(--ink)}
+  .link{font-size:13px;color:var(--ink-2)}
+  .empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-size:14px}
+  .empty strong{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
+
+  /* ── daily check ── */
+  .check-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .check-head .date{font-size:15px;font-weight:700}
+  .progress{flex:1;min-width:120px;height:8px;background:var(--line);border-radius:99px;overflow:hidden}
+  .progress i{display:block;height:100%;background:var(--ok);transition:width .25s}
+  .checklist{list-style:none;margin:0;padding:0}
+  .checklist li{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line-2)}
+  .checklist li:last-child{border-bottom:0}
+  .checklist input[type=checkbox]{width:20px;height:20px;accent-color:var(--ok);flex:none;margin:0}
+  .checklist .t{flex:1;min-width:0}
+  .checklist li.done .t .name{color:var(--ink-3);text-decoration:line-through}
+  .qty{font-size:13px;color:var(--ink-3);white-space:nowrap}
+
+  /* ── stats ── */
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .panel h3{font-size:14px;padding:13px 14px;border-bottom:1px solid var(--line);background:#FAFBF9;font-weight:600}
+  .bar{height:6px;background:var(--line-2);border-radius:99px;overflow:hidden;margin-top:5px}
+  .bar i{display:block;height:100%;background:var(--ink);opacity:.75}
+  .total-row td{font-weight:700;background:#FAFBF9;border-top:1px solid var(--line)}
+
+  /* ── modal ── */
+  .scrim{position:fixed;inset:0;background:rgba(22,34,46,.45);display:none;z-index:50;padding:16px;overflow-y:auto}
+  .scrim.open{display:flex;align-items:flex-start;justify-content:center}
+  .sheet{
+    background:var(--card);border-radius:14px;width:100%;max-width:560px;margin:auto;
+    box-shadow:0 18px 50px rgba(22,34,46,.25);
+  }
+  .sheet header{display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .sheet header h2{font-size:16px;font-weight:700}
+  .sheet header button{margin-left:auto;background:none;border:0;font-size:22px;color:var(--ink-3);line-height:1;padding:0 2px}
+  .sheet .body{padding:18px}
+  .sheet footer{display:flex;gap:8px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--line)}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-size:12.5px;color:var(--ink-2);margin-bottom:5px;font-weight:600}
+  .field input,.field select,.field textarea{
+    width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:14.5px;background:#fff;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:2px solid var(--ink);outline-offset:-1px;border-color:var(--ink)}
+  .field .hint{font-size:12px;color:var(--ink-3);margin-top:4px}
+  .f2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .checkline{display:flex;align-items:center;gap:8px;font-size:14px}
+  .checkline input{width:18px;height:18px;accent-color:var(--ink);margin:0}
+
+  /* ── alarm ── */
+  .alarm .sheet{max-width:460px;border-top:4px solid var(--late)}
+  .alarm-list{list-style:none;margin:0;padding:0}
+  .alarm-list li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line-2)}
+  .alarm-list li:last-child{border-bottom:0}
+  .alarm-list .t{flex:1}
+  .toast{
+    position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
+    background:var(--ink);color:#fff;padding:11px 18px;border-radius:99px;font-size:14px;
+    z-index:80;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  .mobile-only{display:none}
+  @media (max-width:760px){
+    .summary{grid-template-columns:1fr 1fr}
+    .grid2{grid-template-columns:1fr}
+    .desktop-only{display:none}
+    .mobile-only{display:block}
+    .brand h1{font-size:17px}
+    .f2{grid-template-columns:1fr}
+    /* 카드형 테이블 */
+    table.cards thead{display:none}
+    table.cards,table.cards tbody,table.cards tr,table.cards td{display:block;width:100%}
+    table.cards tr{border-bottom:1px solid var(--line);padding:12px 14px}
+    table.cards tr:last-child{border-bottom:0}
+    table.cards td{border:0;padding:2px 0}
+    table.cards td:first-child{box-shadow:none !important}
+    table.cards tr.row-warn{border-left:3px solid var(--warn)}
+    table.cards tr.row-late{border-left:3px solid var(--late)}
+    table.cards td.right,table.cards .rowbtns{text-align:left;justify-content:flex-start}
+    .m-meta{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none !important}}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <h1>숙소 비품 관리</h1>
+      <span id="houseName">게스트하우스</span>
+      <div class="top-actions">
+        <button type="button" id="btnExport">백업 저장</button>
+        <button type="button" id="btnImport">백업 불러오기</button>
+        <input type="file" id="fileImport" accept="application/json" hidden>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <dl class="summary" id="summary"></dl>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" aria-selected="true" data-tab="items">물품 리스트</button>
+    <button role="tab" aria-selected="false" data-tab="daily">일일 점검</button>
+    <button role="tab" aria-selected="false" data-tab="stats">총계</button>
+  </nav>
+
+  <!-- 물품 리스트 -->
+  <section id="tab-items">
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="물품 이름으로 찾기">
+      <select id="fCat"><option value="">전체 분류</option></select>
+      <select id="fStatus">
+        <option value="">전체 상태</option>
+        <option value="late">교체일 지남</option>
+        <option value="warn">교체 임박</option>
+        <option value="ok">정상</option>
+        <option value="none">주기 미설정</option>
+      </select>
+      <button class="btn" id="btnAdd">물품 추가</button>
+      <button class="btn ghost" id="btnCsv">CSV 내려받기</button>
+    </div>
+    <div class="panel">
+      <table id="tbl" class="cards">
+        <thead>
+          <tr>
+            <th>물품</th><th>분류</th><th class="right">수량</th><th class="right">가격</th>
+            <th>구매일</th><th>구매처</th><th>다음 교체일</th><th>상태</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="emptyItems" hidden>
+        <strong>조건에 맞는 물품이 없습니다</strong>
+        검색어나 필터를 바꾸거나, 물품을 새로 추가해 보세요.
+      </div>
+    </div>
+  </section>
+
+  <!-- 일일 점검 -->
+  <section id="tab-daily" hidden>
+    <div class="check-head">
+      <span class="date" id="todayLabel"></span>
+      <div class="progress"><i id="progBar" style="width:0%"></i></div>
+      <span class="qty num" id="progText"></span>
+      <button class="btn ghost sm" id="btnAllCheck">전체 체크</button>
+      <button class="btn ghost sm" id="btnResetCheck">오늘 체크 지우기</button>
+    </div>
+    <div class="panel">
+      <ul class="checklist" id="checklist"></ul>
+      <div class="empty" id="emptyDaily" hidden>
+        <strong>일일 점검 항목이 없습니다</strong>
+        물품을 추가하거나 수정할 때 ‘일일 점검 대상’을 켜면 여기에 나타납니다.
+      </div>
+    </div>
+  </section>
+
+  <!-- 총계 -->
+  <section id="tab-stats" hidden>
+    <div class="grid2">
+      <div class="panel">
+        <h3>분류별 집계</h3>
+        <table><tbody id="statCat"></tbody></table>
+      </div>
+      <div class="panel">
+        <h3>교체 일정</h3>
+        <table><tbody id="statSchedule"></tbody></table>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- 물품 입력/수정 -->
+<div class="scrim" id="modal">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <header><h2 id="modalTitle">물품 추가</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
+    <div class="body">
+      <input type="hidden" id="fId">
+      <div class="field">
+        <label for="fName">물품 이름</label>
+        <input id="fName" placeholder="예: 목욕수건">
+      </div>
+      <div class="f2">
+        <div class="field">
+          <label for="fCatIn">분류</label>
+          <input id="fCatIn" list="catList" placeholder="예: 욕실">
+          <datalist id="catList"></datalist>
+        </div>
+        <div class="field">
+          <label for="fQty">수량</label>
+          <div class="f2" style="gap:6px">
+            <input id="fQty" type="number" min="0" step="1" value="1">
+            <input id="fUnit" placeholder="개">
+          </div>
+        </div>
+      </div>
+      <div class="f2">
+        <div class="field">
+          <label for="fPrice">가격 (개당, 원)</label>
+          <input id="fPrice" type="number" min="0" step="100" placeholder="0">
+        </div>
+        <div class="field">
+          <label for="fDate">구매일</label>
+          <input id="fDate" type="date">
+        </div>
+      </div>
+      <div class="field">
+        <label for="fUrl">구매 사이트 링크</label>
+        <input id="fUrl" type="url" placeholder="https://">
+      </div>
+      <div class="f2">
+        <div class="field">
+          <label for="fCycle">교체 주기 (일)</label>
+          <input id="fCycle" type="number" min="0" step="1" placeholder="예: 180">
+          <p class="hint">주기를 넣으면 다음 교체일이 자동 계산됩니다.</p>
+        </div>
+        <div class="field">
+          <label for="fNext">다음 교체일</label>
+          <input id="fNext" type="date">
+          <p class="hint">직접 지정하면 이 날짜가 우선합니다.</p>
+        </div>
+      </div>
+      <div class="field">
+        <label for="fMemo">메모</label>
+        <textarea id="fMemo" rows="2" placeholder="보관 위치, 규격, 재구매 시 주의사항 등"></textarea>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label class="checkline"><input type="checkbox" id="fDaily"> 일일 점검 대상에 넣기</label>
+      </div>
+    </div>
+    <footer>
+      <button class="btn danger" id="btnDelete" hidden>삭제</button>
+      <button class="btn ghost" data-close>취소</button>
+      <button class="btn" id="btnSave">저장</button>
+    </footer>
+  </div>
+</div>
+
+<!-- 교체 알람 -->
+<div class="scrim alarm" id="alarm">
+  <div class="sheet" role="alertdialog" aria-modal="true" aria-labelledby="alarmTitle">
+    <header><h2 id="alarmTitle">교체할 때가 된 물품이 있습니다</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
+    <div class="body"><ul class="alarm-list" id="alarmList"></ul></div>
+    <footer>
+      <button class="btn ghost" data-close>나중에 보기</button>
+      <button class="btn" id="btnAlarmGo">목록에서 확인</button>
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ───────── 저장소 (localStorage, 차단 시 메모리로 대체) ───────── */
+var KEY = "airbnb-supplies-v1";
+var mem = null;
+var store = {
+  read: function(){
+    try{ var s = localStorage.getItem(KEY); return s ? JSON.parse(s) : null; }
+    catch(e){ return mem; }
+  },
+  write: function(d){
+    mem = d;
+    try{ localStorage.setItem(KEY, JSON.stringify(d)); }catch(e){}
+  }
+};
+
+/* ───────── 날짜 유틸 ───────── */
+function today(){ var d=new Date(); d.setHours(0,0,0,0); return d; }
+function ymd(d){
+  var m=("0"+(d.getMonth()+1)).slice(-2), day=("0"+d.getDate()).slice(-2);
+  return d.getFullYear()+"-"+m+"-"+day;
+}
+function parse(s){ if(!s) return null; var p=s.split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
+function addDays(d,n){ var x=new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
+function dday(s){
+  var d=parse(s); if(!d) return null;
+  return Math.round((d - today())/86400000);
+}
+function won(n){ return (n||0).toLocaleString("ko-KR"); }
+
+/* ───────── 초기 데이터 (프로젝트 체크리스트 기반) ───────── */
+function seed(){
+  var T = today();
+  // [이름, 분류, 수량, 단위, 개당가격, 교체주기(일), 일일점검, 메모]
+  var rows = [
+    ["소화기","안전·소방",2,"개",25000,365,false,"압력게이지 연 1회 점검"],
+    ["단독경보형 화재감지기","안전·소방",3,"개",12000,730,false,"객실마다 1개, 배터리 교체 주기 관리"],
+    ["일산화탄소 경보기","안전·소방",3,"개",28000,1095,false,"객실마다 1개"],
+    ["휴대용 조명등(손전등)","안전·소방",3,"개",9000,365,true,"정전 대비, 배터리 확인"],
+    ["비상구 표시등·스티커","안전·소방",2,"개",8000,0,false,"출입구 부착"],
+    ["완강기","안전·소방",1,"개",180000,0,false,"3층 이상 건물만 해당"],
+    ["영문 비상대피도","안전·소방",2,"장",3000,0,false,"법정 필수, 객실·현관 부착"],
+    ["감지기 예비 배터리","안전·소방",6,"개",1500,180,false,""],
+
+    ["매트리스 방수커버","침실",3,"개",25000,730,false,""],
+    ["침구 세트(이불·베개·시트)","침실",6,"세트",45000,730,false,"침대당 2세트 로테이션"],
+    ["베개","침실",5,"개",15000,365,false,"인원수 +1"],
+    ["여분 담요","침실",3,"장",22000,1095,false,"겨울철 대비"],
+    ["암막커튼","침실",3,"세트",40000,1825,false,""],
+    ["옷걸이","침실",20,"개",1000,1825,false,"옷장당 10개"],
+
+    ["목욕수건","욕실",12,"장",6000,180,true,"1인당 2~3장, 상태 매일 확인"],
+    ["손수건·발수건","욕실",8,"장",4000,180,true,""],
+    ["샴푸·컨디셔너 리필","욕실",2,"통",12000,30,true,"디스펜서 잔량 확인"],
+    ["바디워시 리필","욕실",2,"통",11000,30,true,"디스펜서 잔량 확인"],
+    ["핸드솝·비누","욕실",4,"개",3000,30,true,""],
+    ["헤어드라이어","욕실",2,"개",35000,1095,false,""],
+    ["화장지","욕실",24,"롤",800,14,true,"체크인 시 최소 4롤 비치"],
+    ["변기솔·뚫어뻥","욕실",2,"세트",12000,730,false,""],
+    ["욕실 미끄럼방지 매트","욕실",2,"장",9000,365,false,""],
+
+    ["전기포트","주방",1,"개",30000,1095,false,""],
+    ["전기밥솥","주방",1,"개",90000,1825,false,"외국인 게스트 만족도 높음"],
+    ["커피 캡슐·원두","주방",1,"박스",18000,30,true,"잔량 확인"],
+    ["냄비·프라이팬 세트","주방",1,"세트",70000,1095,false,""],
+    ["칼·도마 세트","주방",1,"세트",35000,730,false,""],
+    ["식기 세트(접시·그릇·컵)","주방",6,"인분",12000,730,false,"최대인원 + 여유분"],
+    ["수저·커트러리","주방",6,"인분",5000,730,false,""],
+    ["주방세제·수세미·행주","주방",1,"세트",9000,30,true,"잔량 확인"],
+    ["쓰레기봉투(일반·음식물)","주방",2,"묶음",6000,30,true,"분리배출 안내문과 함께"],
+    ["기본 양념(소금·후추·식용유)","주방",1,"세트",12000,90,false,""],
+    ["생수","주방",12,"병",700,7,true,"웰컴 비치용 재고"],
+
+    ["와이파이 공유기","거실·공용",1,"개",60000,1825,true,"연결 상태 확인"],
+    ["에어컨 리모컨 영문 라벨","거실·공용",2,"장",2000,0,false,""],
+    ["세탁세제·섬유유연제","거실·공용",1,"세트",15000,45,true,"잔량 확인"],
+    ["청소기","거실·공용",1,"개",150000,1825,false,""],
+    ["실내 슬리퍼","거실·공용",6,"켤레",5000,180,false,""],
+    ["우산","거실·공용",3,"개",8000,730,false,""],
+
+    ["스마트 도어락","보안·기기",1,"개",180000,1825,true,"배터리·비밀번호 확인"],
+    ["도어락 배터리","보안·기기",4,"개",1500,120,false,""],
+
+    ["하우스 매뉴얼(영문)","안내물",2,"부",5000,365,false,"와이파이·가전·분리수거 포함"],
+    ["비상연락처 카드","안내물",2,"장",2000,365,false,"119·112, 인근 병원"],
+    ["분리수거 안내문(그림)","안내물",2,"장",2000,365,false,""],
+
+    ["웰컴 생수·티백","웰컴키트",10,"세트",2000,14,true,"체크인 전 보충"],
+    ["웰컴 카드","웰컴키트",20,"장",500,90,false,""],
+
+    ["다목적 세제·유리세정제","청소·소모품",2,"통",7000,60,false,""],
+    ["고무장갑·스펀지","청소·소모품",3,"세트",4000,90,false,""],
+    ["탈취제·방향제","청소·소모품",3,"개",8000,60,false,""]
+  ];
+  var items = rows.map(function(r,i){
+    var cycle = r[5];
+    return {
+      id: "s"+i,
+      name: r[0], cat: r[1], qty: r[2], unit: r[3], price: r[4],
+      date: "", url: "",
+      cycle: cycle,
+      next: cycle ? ymd(addDays(T, cycle)) : "",
+      daily: r[6], memo: r[7]
+    };
+  });
+  // 알람 동작을 바로 확인할 수 있도록 몇 건은 임박·경과 상태로 시작
+  function set(name, days){
+    var it = items.filter(function(x){return x.name===name;})[0];
+    if(it) it.next = ymd(addDays(T, days));
+  }
+  set("화장지", -2);
+  set("목욕수건", 3);
+  set("감지기 예비 배터리", 0);
+  set("생수", 5);
+  return { house:"게스트하우스", items: items, checks:{}, warnDays:7, dismissed:"" };
+}
+
+/* ───────── 상태 ───────── */
+var db = store.read();
+if(!db || !db.items){ db = seed(); store.write(db); }
+if(!db.checks) db.checks = {};
+if(!db.warnDays) db.warnDays = 7;
+
+function save(){ store.write(db); }
+function uid(){ return "i"+Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
+
+function statusOf(it){
+  if(!it.next) return {key:"none", label:"주기 미설정", d:null};
+  var d = dday(it.next);
+  if(d < 0)  return {key:"late", label:d===-1?"1일 지남":(-d)+"일 지남", d:d};
+  if(d === 0) return {key:"late", label:"오늘 교체", d:0};
+  if(d <= db.warnDays) return {key:"warn", label:"D-"+d, d:d};
+  return {key:"ok", label:"D-"+d, d:d};
+}
+function dueItems(){
+  return db.items.filter(function(it){
+    var s = statusOf(it);
+    return s.key==="late" || s.key==="warn";
+  }).sort(function(a,b){ return statusOf(a).d - statusOf(b).d; });
+}
+function totalValue(){
+  return db.items.reduce(function(s,it){ return s + (+it.price||0)*(+it.qty||0); }, 0);
+}
+
+/* ───────── 화면 그리기 ───────── */
+var $ = function(id){ return document.getElementById(id); };
+
+function renderSummary(){
+  var due = dueItems();
+  var late = due.filter(function(i){ return statusOf(i).key==="late"; }).length;
+  var dailyIds = db.items.filter(function(i){ return i.daily; });
+  var doneToday = (db.checks[ymd(today())]||[]).length;
+  var rate = dailyIds.length ? Math.round(doneToday/dailyIds.length*100) : 0;
+  $("summary").innerHTML =
+    card("등록 물품", db.items.length + "<small>종</small>") +
+    card("총 구매금액", won(totalValue()) + "<small>원</small>") +
+    card("오늘 점검", rate + "<small>% (" + doneToday + "/" + dailyIds.length + ")</small>") +
+    card("교체 필요", due.length + "<small>건 · 경과 " + late + "</small>", late>0);
+}
+function card(t,v,alert){
+  return '<div class="sum'+(alert?' alert':'')+'"><dt>'+t+'</dt><dd class="num">'+v+'</dd></div>';
+}
+
+function esc(s){
+  return String(s==null?"":s).replace(/[&<>"']/g, function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+  });
+}
+
+function filtered(){
+  var q = $("q").value.trim().toLowerCase();
+  var c = $("fCat").value, st = $("fStatus").value;
+  return db.items.filter(function(it){
+    if(q && (it.name+" "+(it.memo||"")).toLowerCase().indexOf(q) < 0) return false;
+    if(c && it.cat !== c) return false;
+    if(st && statusOf(it).key !== st) return false;
+    return true;
+  }).sort(function(a,b){
+    var order = {late:0, warn:1, ok:2, none:3};
+    var d = order[statusOf(a).key] - order[statusOf(b).key];
+    if(d) return d;
+    return (a.cat||"").localeCompare(b.cat||"","ko") || a.name.localeCompare(b.name,"ko");
+  });
+}
+
+function renderItems(){
+  var list = filtered(), tb = $("tbody"), html = "";
+  list.forEach(function(it){
+    var s = statusOf(it);
+    var rowCls = s.key==="late" ? "row-late" : (s.key==="warn" ? "row-warn" : "");
+    html += '<tr class="'+rowCls+'">'
+      + '<td><span class="name">'+esc(it.name)+'</span>'
+        + (it.memo ? '<span class="memo">'+esc(it.memo)+'</span>' : '')
+        + '<div class="m-meta mobile-only"><span class="cat">'+esc(it.cat||"미분류")+'</span>'
+        + '<span class="qty num">'+ (+it.qty||0) + esc(it.unit||"") +'</span>'
+        + '<span class="qty num">'+won((+it.price||0)*(+it.qty||0))+'원</span>'
+        + '<span class="badge '+s.key+'">'+s.label+'</span></div></td>'
+      + '<td class="desktop-only"><span class="cat">'+esc(it.cat||"미분류")+'</span></td>'
+      + '<td class="right num desktop-only">'+(+it.qty||0)+esc(it.unit||"")+'</td>'
+      + '<td class="right num desktop-only">'+won(it.price)+'</td>'
+      + '<td class="num desktop-only">'+(it.date||"—")+'</td>'
+      + '<td class="desktop-only">'+(it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">바로가기</a>' : '—')+'</td>'
+      + '<td class="num desktop-only">'+(it.next||"—")+'</td>'
+      + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
+      + '<td class="right"><div class="rowbtns">'
+        + (it.cycle ? '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>' : '')
+        + '<button class="iconbtn" data-edit="'+it.id+'">수정</button>'
+      + '</div></td></tr>';
+  });
+  tb.innerHTML = html;
+  $("emptyItems").hidden = list.length > 0;
+  $("tbl").hidden = list.length === 0;
+}
+
+function renderCats(){
+  var cats = {};
+  db.items.forEach(function(i){ if(i.cat) cats[i.cat] = 1; });
+  var keys = Object.keys(cats).sort(function(a,b){return a.localeCompare(b,"ko");});
+  var cur = $("fCat").value;
+  $("fCat").innerHTML = '<option value="">전체 분류</option>' + keys.map(function(k){
+    return '<option'+(k===cur?' selected':'')+'>'+esc(k)+'</option>';
+  }).join("");
+  $("catList").innerHTML = keys.map(function(k){ return '<option value="'+esc(k)+'">'; }).join("");
+}
+
+function renderDaily(){
+  var d = today(), key = ymd(d);
+  var days = ["일","월","화","수","목","금","토"];
+  $("todayLabel").textContent = (d.getMonth()+1)+"월 "+d.getDate()+"일 ("+days[d.getDay()]+")";
+  var list = db.items.filter(function(i){ return i.daily; });
+  var done = db.checks[key] || [];
+  var html = list.map(function(it){
+    var on = done.indexOf(it.id) >= 0;
+    var s = statusOf(it);
+    return '<li class="'+(on?"done":"")+'">'
+      + '<input type="checkbox" data-check="'+it.id+'"'+(on?" checked":"")+' aria-label="'+esc(it.name)+' 점검">'
+      + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
+      + '<span class="memo">'+esc(it.cat||"")+(it.memo?" · "+esc(it.memo):"")+'</span></span>'
+      + '<span class="qty num">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
+      + (s.key==="ok"||s.key==="none" ? "" : '<span class="badge '+s.key+'">'+s.label+'</span>')
+      + '</li>';
+  }).join("");
+  $("checklist").innerHTML = html;
+  $("emptyDaily").hidden = list.length > 0;
+  var pct = list.length ? Math.round(done.length/list.length*100) : 0;
+  $("progBar").style.width = pct + "%";
+  $("progText").textContent = done.length + " / " + list.length;
+}
+
+function renderStats(){
+  var byCat = {};
+  db.items.forEach(function(it){
+    var c = it.cat || "미분류";
+    if(!byCat[c]) byCat[c] = {n:0, qty:0, sum:0};
+    byCat[c].n++; byCat[c].qty += (+it.qty||0);
+    byCat[c].sum += (+it.price||0)*(+it.qty||0);
+  });
+  var total = totalValue();
+  var keys = Object.keys(byCat).sort(function(a,b){ return byCat[b].sum - byCat[a].sum; });
+  $("statCat").innerHTML = keys.map(function(k){
+    var v = byCat[k], pct = total ? Math.round(v.sum/total*100) : 0;
+    return '<tr><td><span class="name">'+esc(k)+'</span>'
+      + '<span class="memo">'+v.n+'종 · '+v.qty+'점</span>'
+      + '<div class="bar"><i style="width:'+pct+'%"></i></div></td>'
+      + '<td class="right num" style="white-space:nowrap">'+won(v.sum)+'원<span class="memo">'+pct+'%</span></td></tr>';
+  }).join("") + '<tr class="total-row"><td>합계</td><td class="right num">'+won(total)+'원</td></tr>';
+
+  var due = dueItems();
+  var upcoming = db.items.filter(function(it){
+    var s = statusOf(it); return s.key === "ok";
+  }).sort(function(a,b){ return statusOf(a).d - statusOf(b).d; }).slice(0,6);
+
+  var rows = "";
+  if(due.length){
+    rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">지금 처리할 항목</td></tr>';
+    rows += due.map(function(it){
+      var s = statusOf(it);
+      return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
+        + '<td class="right"><span class="badge '+s.key+'">'+s.label+'</span><span class="memo num">'+(it.next||"")+'</span></td></tr>';
+    }).join("");
+  }
+  if(upcoming.length){
+    rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">다가오는 교체</td></tr>';
+    rows += upcoming.map(function(it){
+      var s = statusOf(it);
+      return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
+        + '<td class="right num">'+it.next+'<span class="memo">'+s.label+'</span></td></tr>';
+    }).join("");
+  }
+  $("statSchedule").innerHTML = rows || '<tr><td class="empty">교체 주기가 설정된 물품이 없습니다.</td></tr>';
+}
+
+function renderAll(){
+  renderCats(); renderSummary(); renderItems(); renderDaily(); renderStats();
+}
+
+/* ───────── 탭 ───────── */
+document.querySelectorAll("nav.tabs button").forEach(function(b){
+  b.addEventListener("click", function(){
+    document.querySelectorAll("nav.tabs button").forEach(function(x){ x.setAttribute("aria-selected", x===b ? "true":"false"); });
+    ["items","daily","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== b.dataset.tab); });
+  });
+});
+function goTab(name){
+  document.querySelectorAll("nav.tabs button").forEach(function(x){
+    x.setAttribute("aria-selected", x.dataset.tab===name ? "true":"false");
+  });
+  ["items","daily","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
+}
+
+/* ───────── 물품 추가·수정 ───────── */
+function openModal(it){
+  $("modalTitle").textContent = it ? "물품 수정" : "물품 추가";
+  $("fId").value = it ? it.id : "";
+  $("fName").value = it ? it.name : "";
+  $("fCatIn").value = it ? (it.cat||"") : "";
+  $("fQty").value = it ? it.qty : 1;
+  $("fUnit").value = it ? (it.unit||"개") : "개";
+  $("fPrice").value = it ? (it.price||"") : "";
+  $("fDate").value = it ? (it.date||"") : "";
+  $("fUrl").value = it ? (it.url||"") : "";
+  $("fCycle").value = it && it.cycle ? it.cycle : "";
+  $("fNext").value = it ? (it.next||"") : "";
+  $("fMemo").value = it ? (it.memo||"") : "";
+  $("fDaily").checked = it ? !!it.daily : false;
+  $("btnDelete").hidden = !it;
+  $("modal").classList.add("open");
+  setTimeout(function(){ $("fName").focus(); }, 30);
+}
+function closeAll(){
+  $("modal").classList.remove("open");
+  $("alarm").classList.remove("open");
+}
+document.addEventListener("click", function(e){
+  if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")) closeAll();
+});
+document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeAll(); });
+
+$("btnAdd").addEventListener("click", function(){ openModal(null); });
+
+$("tbody").addEventListener("click", function(e){
+  var ed = e.target.getAttribute("data-edit");
+  if(ed){
+    var it = db.items.filter(function(x){ return x.id===ed; })[0];
+    if(it) openModal(it);
+    return;
+  }
+  var rn = e.target.getAttribute("data-renew");
+  if(rn){
+    var it2 = db.items.filter(function(x){ return x.id===rn; })[0];
+    if(!it2) return;
+    it2.date = ymd(today());
+    it2.next = ymd(addDays(today(), +it2.cycle||0));
+    save(); renderAll();
+    toast(it2.name + " 교체 완료로 기록했습니다");
+  }
+});
+
+$("btnSave").addEventListener("click", function(){
+  var name = $("fName").value.trim();
+  if(!name){ $("fName").focus(); toast("물품 이름을 입력해 주세요"); return; }
+  var id = $("fId").value;
+  var cycle = +$("fCycle").value || 0;
+  var next = $("fNext").value;
+  var date = $("fDate").value;
+  if(!next && cycle){
+    next = ymd(addDays(date ? parse(date) : today(), cycle));
+  }
+  var data = {
+    name: name,
+    cat: $("fCatIn").value.trim() || "미분류",
+    qty: +$("fQty").value || 0,
+    unit: $("fUnit").value.trim() || "개",
+    price: +$("fPrice").value || 0,
+    date: date,
+    url: $("fUrl").value.trim(),
+    cycle: cycle,
+    next: next,
+    memo: $("fMemo").value.trim(),
+    daily: $("fDaily").checked
+  };
+  if(id){
+    var it = db.items.filter(function(x){ return x.id===id; })[0];
+    if(it) Object.keys(data).forEach(function(k){ it[k] = data[k]; });
+    toast("수정했습니다");
+  }else{
+    data.id = uid();
+    db.items.push(data);
+    toast("추가했습니다");
+  }
+  save(); renderAll(); closeAll();
+});
+
+$("btnDelete").addEventListener("click", function(){
+  var id = $("fId").value;
+  var it = db.items.filter(function(x){ return x.id===id; })[0];
+  if(!it) return;
+  if(!confirm("‘"+it.name+"’을(를) 삭제할까요? 되돌릴 수 없습니다.")) return;
+  db.items = db.items.filter(function(x){ return x.id!==id; });
+  Object.keys(db.checks).forEach(function(k){
+    db.checks[k] = db.checks[k].filter(function(x){ return x!==id; });
+  });
+  save(); renderAll(); closeAll();
+  toast("삭제했습니다");
+});
+
+/* ───────── 필터 ───────── */
+["q","fCat","fStatus"].forEach(function(id){
+  $(id).addEventListener("input", function(){ renderItems(); });
+});
+
+/* ───────── 일일 점검 ───────── */
+$("checklist").addEventListener("change", function(e){
+  var id = e.target.getAttribute("data-check");
+  if(!id) return;
+  var key = ymd(today());
+  var arr = db.checks[key] || [];
+  if(e.target.checked){ if(arr.indexOf(id)<0) arr.push(id); }
+  else { arr = arr.filter(function(x){ return x!==id; }); }
+  db.checks[key] = arr;
+  save(); renderDaily(); renderSummary();
+});
+$("btnAllCheck").addEventListener("click", function(){
+  db.checks[ymd(today())] = db.items.filter(function(i){return i.daily;}).map(function(i){return i.id;});
+  save(); renderDaily(); renderSummary();
+  toast("오늘 점검을 모두 완료로 표시했습니다");
+});
+$("btnResetCheck").addEventListener("click", function(){
+  db.checks[ymd(today())] = [];
+  save(); renderDaily(); renderSummary();
+});
+
+/* ───────── 백업·내보내기 ───────── */
+function download(name, text, type){
+  var blob = new Blob([text], {type: type||"application/json;charset=utf-8"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+$("btnExport").addEventListener("click", function(){
+  download("비품데이터-"+ymd(today())+".json", JSON.stringify(db, null, 2));
+  toast("백업 파일을 내려받았습니다");
+});
+$("btnImport").addEventListener("click", function(){ $("fileImport").click(); });
+$("fileImport").addEventListener("change", function(e){
+  var f = e.target.files[0]; if(!f) return;
+  var r = new FileReader();
+  r.onload = function(){
+    try{
+      var d = JSON.parse(r.result);
+      if(!d.items) throw new Error("형식 오류");
+      db = d; if(!db.checks) db.checks={}; if(!db.warnDays) db.warnDays=7;
+      save(); renderAll();
+      toast("백업을 불러왔습니다");
+    }catch(err){
+      toast("파일을 읽지 못했습니다. 이 시스템에서 저장한 JSON인지 확인해 주세요");
+    }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+$("btnCsv").addEventListener("click", function(){
+  var head = ["물품","분류","수량","단위","개당가격","총액","구매일","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
+  var lines = [head.join(",")];
+  filtered().forEach(function(it){
+    var s = statusOf(it);
+    var row = [it.name, it.cat, it.qty, it.unit, it.price, (+it.price||0)*(+it.qty||0),
+               it.date, it.url, it.cycle, it.next, s.label, it.daily?"Y":"N", it.memo];
+    lines.push(row.map(function(v){
+      v = (v==null?"":String(v));
+      return /[",\n]/.test(v) ? '"'+v.replace(/"/g,'""')+'"' : v;
+    }).join(","));
+  });
+  download("비품리스트-"+ymd(today())+".csv", "\uFEFF"+lines.join("\n"), "text/csv;charset=utf-8");
+});
+
+/* ───────── 알람 ───────── */
+function showAlarm(){
+  var due = dueItems();
+  var key = ymd(today());
+  if(!due.length || db.dismissed === key) return;
+  $("alarmList").innerHTML = due.slice(0,8).map(function(it){
+    var s = statusOf(it);
+    return '<li><span class="t"><span class="name">'+esc(it.name)+'</span>'
+      + '<span class="memo">'+esc(it.cat||"")+' · 교체 예정 '+(it.next||"")+'</span></span>'
+      + '<span class="badge '+s.key+'">'+s.label+'</span></li>';
+  }).join("") + (due.length>8 ? '<li><span class="memo">외 '+(due.length-8)+'건</span></li>' : '');
+  $("alarm").classList.add("open");
+}
+$("alarm").addEventListener("click", function(e){
+  if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")){
+    db.dismissed = ymd(today()); save();
+  }
+});
+$("btnAlarmGo").addEventListener("click", function(){
+  db.dismissed = ymd(today()); save();
+  closeAll(); goTab("items");
+  $("fStatus").value = "late"; renderItems();
+});
+
+function toast(msg){
+  var t = $("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ t.classList.remove("show"); }, 2200);
+}
+
+/* ───────── 시작 ───────── */
+$("houseName").textContent = db.house || "게스트하우스";
+renderAll();
+showAlarm();
+
+})();
+</script>
+</body>
+</html>
