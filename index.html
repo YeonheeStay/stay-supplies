@@ -109,6 +109,9 @@
   .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
   @keyframes dim{0%,100%{opacity:1}50%{opacity:.3}}
   .badge.low{color:#fff;background:var(--late);animation:dim 1.3s ease-in-out infinite}
+  .badge.full{color:#fff;background:var(--ok);animation:dim 1.3s ease-in-out infinite}
+  .stepper .qv.full{color:var(--ok);animation:dim 1.3s ease-in-out infinite}
+  li.fullline{background:#F2F8F4}
   tr.row-low td:first-child{box-shadow:inset 3px 0 0 var(--late)}
   .stepper .qv.low{color:var(--late);animation:dim 1.3s ease-in-out infinite}
   li.lowline{background:#FDF4F3}
@@ -242,7 +245,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v8</span>
+      <span class="ver">v9</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -283,7 +286,7 @@
       <table id="tbl" class="cards">
         <thead>
           <tr>
-            <th>물품</th><th>용도</th><th class="right">재고 / 필요</th><th class="right">가격</th>
+            <th>물품</th><th>용도</th><th class="right">기준 수량</th><th class="right">가격</th>
             <th>구매일</th><th>구매처</th><th>다음 교체일</th><th>상태</th><th></th>
           </tr>
         </thead>
@@ -374,7 +377,7 @@
           <datalist id="catList"></datalist>
         </div>
         <div class="field">
-          <label for="fQty">필요 수량</label>
+          <label for="fQty">기준 수량</label>
           <div class="f2" style="gap:6px">
             <input id="fQty" type="number" min="0" step="1" value="1">
             <input id="fUnit" placeholder="개">
@@ -385,7 +388,7 @@
         <div class="field">
           <label for="fStock">현재 재고</label>
           <input id="fStock" type="number" min="0" step="1" placeholder="0">
-          <p class="hint">재고가 필요 수량보다 적으면 재고 부족으로 표시됩니다.</p>
+          <p class="hint">기준 수량과 같으면 녹색, 적으면 빨간색으로 알립니다.</p>
         </div>
         <div class="field"><label for="fPrice">가격 (개당, 원)</label><input id="fPrice" type="number" min="0" step="100" placeholder="0"></div>
       </div>
@@ -452,7 +455,7 @@
       <p class="movehead"><strong id="buyItemName"></strong></p>
       <div class="f2">
         <div class="field"><label for="bDate">구매일자</label><input id="bDate" type="date"></div>
-        <div class="field"><label for="bQty">필요 수량</label><input id="bQty" type="number" min="0" step="1"></div>
+        <div class="field"><label for="bQty">기준 수량</label><input id="bQty" type="number" min="0" step="1"></div>
       </div>
       <div class="field">
         <label for="bPrice">금액 (개당, 원)</label>
@@ -679,6 +682,12 @@ function filtered(){
 function lowBadge(it){
   return isLow(it) ? '<span class="badge low">재고 부족</span>' : '';
 }
+function stockBadge(it){
+  var cur = stockOf(it), base = +it.qty || 0;
+  if(cur < base) return '<span class="badge low">재고 부족</span>';
+  if(cur === base) return '<span class="badge full">재고 충족</span>';
+  return '<span class="badge ok">여유 +'+(cur-base)+'</span>';
+}
 function replBadge(it){
   var s = statusOf(it);
   return (s.key==="late" || s.key==="warn") ? '<span class="badge '+s.key+'">'+s.label+'</span>' : '';
@@ -708,15 +717,13 @@ function rowHtml(it){
   var total = won((+it.price||0)*(+it.qty||0));
   return '<tr class="'+cls+'">'
     + '<td><div class="desktop-only"><div class="buyname"><span class="name">'+esc(it.name)+'</span>'
-        + buyBadge(it) + lowBadge(it) + '</div>'
+        + buyBadge(it) + stockBadge(it) + '</div>'
         + (it.memo ? '<span class="memo">'+esc(it.memo)+'</span>' : '') + '</div>'
       + '<div class="mcard mobile-only">'
         + mrow("물품", '<span class="name">'+esc(it.name)+'</span>')
         + mrow("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>')
         + mrow("구매", buyBadge(it))
-        + mrow("재고", '<span class="num">'+stockOf(it)+esc(it.unit||"")
-              +' / 필요 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
-              + (isLow(it) ? ' '+lowBadge(it) : ''))
+        + mrow("기준", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span> '+stockBadge(it))
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+(it.date||"—")+'</span>')
         + mrow("구매처", link)
@@ -725,7 +732,7 @@ function rowHtml(it){
         + (it.memo ? mrow("메모", esc(it.memo)) : "")
       + '</div></td>'
     + '<td class="desktop-only"><span class="cat">'+esc(it.cat||"미분류")+'</span></td>'
-    + '<td class="right num desktop-only">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</td>'
+    + '<td class="right num desktop-only">'+(+it.qty||0)+esc(it.unit||"")+'</td>'
     + '<td class="right num desktop-only">'+won(it.price)+'</td>'
     + '<td class="num desktop-only">'+(it.date||"—")+'</td>'
     + '<td class="desktop-only">'+link+'</td>'
@@ -906,15 +913,16 @@ function renderStock(){
     html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
       + '<span class="memo">'+arr.length+'종'+(lowN ? ' · 재고 부족 '+lowN+'건' : '')+'</span></span></li>';
     arr.forEach(function(it){
-      html += '<li class="'+(isLow(it)?"lowline":"")+'">'
+      html += '<li class="'+(isLow(it)?"lowline":(stockOf(it)===(+it.qty||0)?"fullline":""))+'">'
         + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
-          + replBadge(it) + lowBadge(it) + buyBadge(it)
-          + '<span class="qty num">필요 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
+          + replBadge(it) + stockBadge(it)
+          + '<span class="qty num">기준 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
         + '</span>'
         + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))+'</span></span>'
         + '<span class="stepper">'
           + '<button type="button" data-dec="'+it.id+'" aria-label="수량 줄이기">−</button>'
-          + '<span class="qv'+(isLow(it)?" low":"")+'">'+stockOf(it)+esc(it.unit||"")+'</span>'
+          + '<span class="qv'+(isLow(it)?" low":(stockOf(it)===(+it.qty||0)?" full":""))+'">'
+            +stockOf(it)+esc(it.unit||"")+'</span>'
           + '<button type="button" data-inc="'+it.id+'" aria-label="수량 늘리기">+</button>'
         + '</span></li>';
     });
@@ -964,7 +972,7 @@ function renderStats(){
     rows += lows.map(function(it){
       return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right"><span class="badge low">재고 부족</span>'
-        + '<span class="memo num">재고 '+stockOf(it)+esc(it.unit||"")+' / 필요 '+(+it.qty||0)+esc(it.unit||"")+'</span></td></tr>';
+        + '<span class="memo num">재고 '+stockOf(it)+esc(it.unit||"")+' / 기준 '+(+it.qty||0)+esc(it.unit||"")+'</span></td></tr>';
     }).join("");
   }
   if(due.length){
@@ -1322,7 +1330,7 @@ $("btnResetCheck").addEventListener("click", function(){
 
 /* ───────── CSV ───────── */
 $("btnCsv").addEventListener("click", function(){
-  var head = ["물품","용도","재고","필요수량","단위","개당가격","총액","구매완료","구매일","구매처","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
+  var head = ["물품","용도","재고","기준수량","단위","개당가격","총액","구매완료","구매일","구매처","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
   var lines = [head.join(",")];
   filtered().forEach(function(it){
     var row = [it.name, it.cat, stockOf(it), it.qty, it.unit, it.price, (+it.price||0)*(+it.qty||0),
