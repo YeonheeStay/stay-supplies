@@ -94,6 +94,8 @@
   .rowbtns{display:flex;gap:4px;justify-content:flex-end}
   .iconbtn{background:none;border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:12.5px;color:var(--ink-2)}
   .iconbtn:hover{border-color:var(--ink-3);color:var(--ink)}
+  .iconbtn.done{background:#1D62C4;border-color:#1D62C4;color:#fff;font-weight:600}
+  .iconbtn.done:hover{background:#17529F;border-color:#17529F;color:#fff}
   .link{font-size:13px;color:var(--ink-2)}
   .empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-size:14px}
   .empty strong{display:block;color:var(--ink);font-size:15px;margin-bottom:6px}
@@ -198,7 +200,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v2</span>
+      <span class="ver">v3</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -537,6 +539,10 @@ function filtered(){
   });
 }
 
+function renewedToday(it){
+  return !!(it.cycle && it.date && it.date === ymd(today()));
+}
+
 function mrow(label, value){
   return '<div class="mrow"><span class="ml">'+label+'</span><span class="mv">'+value+'</span></div>';
 }
@@ -568,7 +574,9 @@ function rowHtml(it){
     + '<td class="num desktop-only">'+(it.next||"—")+'</td>'
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
-      + (it.cycle ? '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>' : '')
+      + (it.cycle ? (renewedToday(it)
+          ? '<button class="iconbtn done" data-undo="'+it.id+'">교체 완료됨</button>'
+          : '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>') : '')
       + '<button class="iconbtn" data-mv="'+it.id+'">용도 이동</button>'
       + '<button class="iconbtn" data-edit="'+it.id+'">수정</button>'
     + '</div></td></tr>';
@@ -744,8 +752,11 @@ $("btnSave").addEventListener("click", function(){
     date: date, url: $("fUrl").value.trim(),
     cycle: cycle, next: next,
     memo: $("fMemo").value.trim(),
-    daily: $("fDaily").checked
+    daily: $("fDaily").checked,
+    prevDate: "", prevNext: ""
   };
+  var old = db.items.filter(function(x){ return x.id === data.id; })[0];
+  if(old){ data.prevDate = old.prevDate || ""; data.prevNext = old.prevNext || ""; }
   var found = db.items.filter(function(x){ return x.id === data.id; })[0];
   if(found) Object.keys(data).forEach(function(k){ found[k] = data[k]; });
   else db.items.push(data);
@@ -779,10 +790,25 @@ $("tbody").addEventListener("click", function(e){
     if(it3) openMove(it3);
     return;
   }
+  var un = e.target.getAttribute("data-undo");
+  if(un){
+    var it4 = db.items.filter(function(x){ return x.id===un; })[0];
+    if(!it4) return;
+    var back = it4.prevDate ? it4.prevDate : "없음(비어 있음)";
+    if(!confirm("‘"+it4.name+"’의 교체 완료를 취소할까요?\n\n구매일: "+it4.date+" → "+back
+                +"\n다음 교체일: "+it4.next+" → "+(it4.prevNext || "없음"))) return;
+    it4.date = it4.prevDate || "";
+    it4.next = it4.prevNext || "";
+    it4.prevDate = ""; it4.prevNext = "";
+    push("upsert", it4, it4.name + " 교체 완료를 취소했습니다");
+    return;
+  }
   var rn = e.target.getAttribute("data-renew");
   if(rn){
     var it2 = db.items.filter(function(x){ return x.id===rn; })[0];
     if(!it2) return;
+    it2.prevDate = it2.date || "";
+    it2.prevNext = it2.next || "";
     it2.date = ymd(today());
     it2.next = ymd(addDays(today(), +it2.cycle||0));
     push("upsert", it2, it2.name + " 교체 완료로 기록했습니다");
