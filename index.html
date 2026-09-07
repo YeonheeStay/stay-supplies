@@ -94,6 +94,16 @@
   .rowbtns{display:flex;gap:4px;justify-content:flex-end}
   .iconbtn{background:none;border:1px solid var(--line);border-radius:7px;padding:4px 8px;font-size:12.5px;color:var(--ink-2)}
   .iconbtn:hover{border-color:var(--ink-3);color:var(--ink)}
+  .iconbtn.buy{border-color:#B8C9E4;color:#1D62C4}
+  .iconbtn.buy.on{background:#E4EDFA;border-color:#B8C9E4;color:#17529F;font-weight:600}
+  .badge.buy{color:#1D62C4;background:#E4EDFA}
+  .badge.nobuy{color:var(--ink-3);background:var(--line-2)}
+  .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .infolist{list-style:none;margin:0;padding:0}
+  .infolist li{display:flex;gap:12px;padding:9px 0;border-bottom:1px solid var(--line-2);font-size:14.5px}
+  .infolist li:last-child{border-bottom:0}
+  .infolist .k{flex:0 0 70px;color:var(--ink-3);font-size:13px}
+  .infolist .v{flex:1;min-width:0;word-break:break-word}
   .iconbtn.done{background:#1D62C4;border-color:#1D62C4;color:#fff;font-weight:600}
   .iconbtn.done:hover{background:#17529F;border-color:#17529F;color:#fff}
   .link{font-size:13px;color:var(--ink-2)}
@@ -111,6 +121,8 @@
   .checklist input[type=checkbox]{width:20px;height:20px;accent-color:var(--ok);flex:none;margin:0}
   .checklist .t{flex:1;min-width:0}
   .checklist li.done .t .name{color:var(--ink-3);text-decoration:line-through}
+  .checklist li.grpline{background:#EAEEE8;padding:8px 14px}
+  .checklist li.grpline .name{font-size:13.5px}
   .qty{font-size:13px;color:var(--ink-3);white-space:nowrap}
 
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
@@ -207,7 +219,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v4</span>
+      <span class="ver">v5</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -224,6 +236,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" aria-selected="true" data-tab="items">물품 리스트</button>
     <button role="tab" aria-selected="false" data-tab="daily">일일 점검</button>
+    <button role="tab" aria-selected="false" data-tab="buy">구매 리스트</button>
     <button role="tab" aria-selected="false" data-tab="stats">총계</button>
   </nav>
 
@@ -269,6 +282,26 @@
       <div class="empty" id="emptyDaily" hidden>
         <strong>일일 점검 항목이 없습니다</strong>
         물품을 추가하거나 수정할 때 ‘일일 점검 대상’을 켜면 여기에 나타납니다.
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-buy" hidden>
+    <div class="check-head">
+      <span class="date">구매 진행</span>
+      <div class="progress"><i id="buyBar" style="width:0%"></i></div>
+      <span class="qty num" id="buyText"></span>
+      <select id="buyFilter">
+        <option value="">전체 보기</option>
+        <option value="todo">아직 안 산 것만</option>
+        <option value="done">구매 완료만</option>
+      </select>
+    </div>
+    <div class="panel">
+      <ul class="checklist" id="buylist"></ul>
+      <div class="empty" id="emptyBuy" hidden>
+        <strong>해당하는 품목이 없습니다</strong>
+        위 선택을 바꿔보세요.
       </div>
     </div>
   </section>
@@ -356,6 +389,43 @@
     <footer>
       <button class="btn ghost" id="btnDisconnect">연결 해제</button>
       <button class="btn" id="btnCfgSave">연결하고 불러오기</button>
+    </footer>
+  </div>
+</div>
+
+<div class="scrim" id="buyModal">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="buyTitle" style="max-width:460px">
+    <header><h2 id="buyTitle">구매 정보 입력</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
+    <div class="body">
+      <p class="movehead"><strong id="buyItemName"></strong></p>
+      <div class="f2">
+        <div class="field"><label for="bDate">구매일자</label><input id="bDate" type="date"></div>
+        <div class="field"><label for="bQty">구매 수량</label><input id="bQty" type="number" min="0" step="1"></div>
+      </div>
+      <div class="field">
+        <label for="bPrice">금액 (개당, 원)</label>
+        <input id="bPrice" type="number" min="0" step="100" placeholder="0">
+        <p class="hint" id="bTotal">총액 0원</p>
+      </div>
+      <div class="field"><label for="bVendor">구매처</label><input id="bVendor" placeholder="예: 쿠팡, 이케아 광명점"></div>
+      <div class="field" style="margin-bottom:0">
+        <label for="bUrl">구매 사이트 링크</label><input id="bUrl" type="url" placeholder="https://">
+      </div>
+    </div>
+    <footer>
+      <button class="btn ghost" data-close>취소</button>
+      <button class="btn" id="btnBuySave">구매 완료로 저장</button>
+    </footer>
+  </div>
+</div>
+
+<div class="scrim" id="infoModal">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="infoTitle" style="max-width:420px">
+    <header><h2 id="infoTitle">구매 정보</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
+    <div class="body"><ul class="infolist" id="infoList"></ul></div>
+    <footer>
+      <button class="btn ghost" data-close>닫기</button>
+      <button class="btn" id="btnInfoEdit">정보 수정</button>
     </footer>
   </div>
 </div>
@@ -511,6 +581,11 @@ function dueItems(){
     var k = statusOf(it).key; return k==="late" || k==="warn";
   }).sort(function(a,b){ return statusOf(a).d - statusOf(b).d; });
 }
+function boughtValue(){
+  return db.items.reduce(function(s,it){
+    return s + (it.bought ? (+it.price||0)*(+it.qty||0) : 0);
+  }, 0);
+}
 function totalValue(){
   return db.items.reduce(function(s,it){ return s + (+it.price||0)*(+it.qty||0); }, 0);
 }
@@ -527,7 +602,7 @@ function renderSummary(){
   var rate = daily.length ? Math.round(done/daily.length*100) : 0;
   $("summary").innerHTML =
     card("등록 물품", db.items.length + "<small>종</small>") +
-    card("총 구매금액", won(totalValue()) + "<small>원</small>") +
+    card("구매 완료액", won(boughtValue()) + "<small>원 · " + db.items.filter(function(i){return i.bought;}).length + "/" + db.items.length + "</small>") +
     card("오늘 점검", rate + "<small>% (" + done + "/" + daily.length + ")</small>") +
     card("교체 필요", due.length + "<small>건 · 경과 " + late + "</small>", late>0);
 }
@@ -548,6 +623,12 @@ function filtered(){
   });
 }
 
+function buyBadge(it){
+  return it.bought
+    ? '<span class="badge buy">구매완료'+(it.date ? " "+it.date : "")+'</span>'
+    : '<span class="badge nobuy">미구매</span>';
+}
+
 function renewedToday(it){
   return !!(it.cycle && it.date && it.date === ymd(today()));
 }
@@ -562,11 +643,13 @@ function rowHtml(it){
   var link = it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">바로가기</a>' : '—';
   var total = won((+it.price||0)*(+it.qty||0));
   return '<tr class="'+cls+'">'
-    + '<td><div class="desktop-only"><span class="name">'+esc(it.name)+'</span>'
+    + '<td><div class="desktop-only"><div class="buyname"><span class="name">'+esc(it.name)+'</span>'
+        + buyBadge(it) + '</div>'
         + (it.memo ? '<span class="memo">'+esc(it.memo)+'</span>' : '') + '</div>'
       + '<div class="mcard mobile-only">'
         + mrow("물품", '<span class="name">'+esc(it.name)+'</span>')
         + mrow("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>')
+        + mrow("구매", buyBadge(it))
         + mrow("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>')
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+(it.date||"—")+'</span>')
@@ -583,6 +666,7 @@ function rowHtml(it){
     + '<td class="num desktop-only">'+(it.next||"—")+'</td>'
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
+      + '<button class="iconbtn buy'+(it.bought?" on":"")+'" data-info="'+it.id+'">구매 정보</button>'
       + (it.cycle ? (renewedToday(it)
           ? '<button class="iconbtn done" data-undo="'+it.id+'">교체 완료됨</button>'
           : '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>') : '')
@@ -664,6 +748,52 @@ function renderDaily(){
   $("progText").textContent = done.length + " / " + list.length;
 }
 
+function renderBuy(){
+  var mode = $("buyFilter").value;
+  var list = db.items.filter(function(it){
+    if(mode === "todo") return !it.bought;
+    if(mode === "done") return !!it.bought;
+    return true;
+  }).sort(function(a,b){
+    return (a.cat||"").localeCompare(b.cat||"","ko") || a.name.localeCompare(b.name,"ko");
+  });
+
+  var groups = {};
+  list.forEach(function(it){
+    var c = it.cat || "미분류";
+    if(!groups[c]) groups[c] = [];
+    groups[c].push(it);
+  });
+
+  var html = "";
+  Object.keys(groups).sort(function(a,b){ return a.localeCompare(b,"ko"); }).forEach(function(c){
+    var arr = groups[c];
+    var doneN = arr.filter(function(x){ return x.bought; }).length;
+    var sum = arr.reduce(function(t,x){ return t + (x.bought ? (+x.price||0)*(+x.qty||0) : 0); }, 0);
+    html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
+      + '<span class="memo">구매 '+doneN+'/'+arr.length+'건 · '+won(sum)+'원</span></span></li>';
+    arr.forEach(function(it){
+      html += '<li class="'+(it.bought?"done":"")+'">'
+        + '<input type="checkbox" data-buy="'+it.id+'"'+(it.bought?" checked":"")+' aria-label="'+esc(it.name)+' 구매 완료">'
+        + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
+        + '<span class="memo">'+(+it.qty||0)+esc(it.unit||"")
+        + (it.bought
+            ? ' · '+won((+it.price||0)*(+it.qty||0))+'원'+(it.vendor ? ' · '+esc(it.vendor) : '')+(it.date ? ' · '+it.date : '')
+            : ' · 예상 '+won((+it.price||0)*(+it.qty||0))+'원')
+        + '</span></span>'
+        + (it.bought ? '<button class="iconbtn buy on" data-info="'+it.id+'">정보</button>' : '')
+        + '</li>';
+    });
+  });
+  $("buylist").innerHTML = html;
+  $("emptyBuy").hidden = list.length > 0;
+
+  var all = db.items.length;
+  var done = db.items.filter(function(x){ return x.bought; }).length;
+  $("buyBar").style.width = (all ? Math.round(done/all*100) : 0) + "%";
+  $("buyText").textContent = done + " / " + all;
+}
+
 function renderStats(){
   var byCat = {};
   db.items.forEach(function(it){
@@ -703,21 +833,21 @@ function renderStats(){
   $("statSchedule").innerHTML = rows || '<tr><td class="empty">교체 주기가 설정된 물품이 없습니다.</td></tr>';
 }
 
-function renderAll(){ renderCats(); renderSummary(); renderItems(); renderDaily(); renderStats(); }
+function renderAll(){ renderCats(); renderSummary(); renderItems(); renderDaily(); renderBuy(); renderStats(); }
 
 /* ───────── 탭 ───────── */
 function goTab(name){
   document.querySelectorAll("nav.tabs button").forEach(function(x){
     x.setAttribute("aria-selected", x.dataset.tab===name ? "true" : "false");
   });
-  ["items","daily","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
+  ["items","daily","buy","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
 }
 document.querySelectorAll("nav.tabs button").forEach(function(b){
   b.addEventListener("click", function(){ goTab(b.dataset.tab); });
 });
 
 /* ───────── 모달 ───────── */
-function closeAll(){ ["modal","cfgModal","moveModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
+function closeAll(){ ["modal","cfgModal","moveModal","buyModal","infoModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
 document.addEventListener("click", function(e){
   if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")) closeAll();
 });
@@ -763,10 +893,13 @@ $("btnSave").addEventListener("click", function(){
     cycle: cycle, next: next,
     memo: $("fMemo").value.trim(),
     daily: $("fDaily").checked,
-    prevDate: "", prevNext: ""
+    prevDate: "", prevNext: "", bought: false, vendor: ""
   };
   var old = db.items.filter(function(x){ return x.id === data.id; })[0];
-  if(old){ data.prevDate = old.prevDate || ""; data.prevNext = old.prevNext || ""; }
+  if(old){
+    data.prevDate = old.prevDate || ""; data.prevNext = old.prevNext || "";
+    data.bought = !!old.bought; data.vendor = old.vendor || "";
+  }
   var found = db.items.filter(function(x){ return x.id === data.id; })[0];
   if(found) Object.keys(data).forEach(function(k){ found[k] = data[k]; });
   else db.items.push(data);
@@ -792,6 +925,12 @@ $("tbody").addEventListener("click", function(e){
   if(ed){
     var it = db.items.filter(function(x){ return x.id===ed; })[0];
     if(it) openModal(it);
+    return;
+  }
+  var inf = e.target.getAttribute("data-info");
+  if(inf){
+    var it5 = db.items.filter(function(x){ return x.id===inf; })[0];
+    if(it5) openInfo(it5);
     return;
   }
   var mv = e.target.getAttribute("data-mv");
@@ -827,6 +966,99 @@ $("tbody").addEventListener("click", function(e){
 
 ["q","fCat","fStatus"].forEach(function(id){ $(id).addEventListener("input", renderItems); });
 $("fGroup").addEventListener("change", renderItems);
+
+/* ───────── 구매 정보 ───────── */
+var buyId = null;
+
+function openBuy(it){
+  buyId = it.id;
+  $("buyTitle").textContent = it.bought ? "구매 정보 수정" : "구매 정보 입력";
+  $("btnBuySave").textContent = it.bought ? "저장" : "구매 완료로 저장";
+  $("buyItemName").textContent = it.name + " · " + esc(it.cat||"미분류");
+  $("bDate").value = it.date || ymd(today());
+  $("bQty").value = +it.qty || 0;
+  $("bPrice").value = it.price || "";
+  $("bVendor").value = it.vendor || "";
+  $("bUrl").value = it.url || "";
+  updateBuyTotal();
+  $("buyModal").classList.add("open");
+  setTimeout(function(){ $("bPrice").focus(); }, 30);
+}
+function updateBuyTotal(){
+  var t = (+$("bPrice").value||0) * (+$("bQty").value||0);
+  $("bTotal").textContent = "총액 " + won(t) + "원";
+}
+$("bPrice").addEventListener("input", updateBuyTotal);
+$("bQty").addEventListener("input", updateBuyTotal);
+
+$("btnBuySave").addEventListener("click", function(){
+  var it = db.items.filter(function(x){ return x.id === buyId; })[0];
+  if(!it) return;
+  it.date = $("bDate").value;
+  it.qty = +$("bQty").value || 0;
+  it.price = +$("bPrice").value || 0;
+  it.vendor = $("bVendor").value.trim();
+  it.url = $("bUrl").value.trim();
+  it.bought = true;
+  closeAll();
+  push("upsert", it, it.name + " 구매 완료로 기록했습니다");
+});
+
+// 모달을 저장 없이 닫으면 체크 상태를 원래대로 되돌림
+$("buyModal").addEventListener("click", function(e){
+  if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")) renderBuy();
+});
+
+function openInfo(it){
+  buyId = it.id;
+  $("infoTitle").textContent = it.name;
+  var row = function(k,v){ return '<li><span class="k">'+k+'</span><span class="v">'+v+'</span></li>'; };
+  if(!it.bought){
+    $("infoList").innerHTML = row("상태", '<span class="badge nobuy">아직 구매 전</span>')
+      + row("예상 금액", '<span class="num">'+won((+it.price||0)*(+it.qty||0))+'원</span>')
+      + row("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>');
+    $("btnInfoEdit").textContent = "구매 완료 처리";
+  }else{
+    $("infoList").innerHTML = row("상태", '<span class="badge buy">구매완료</span>')
+      + row("구매일자", '<span class="num">'+(it.date || "—")+'</span>')
+      + row("금액", '<span class="num">'+won(it.price)+'원 × '+(+it.qty||0)+esc(it.unit||"")+' = '+won((+it.price||0)*(+it.qty||0))+'원</span>')
+      + row("구매처", esc(it.vendor || "—"))
+      + row("링크", it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">구매 페이지 열기</a>' : "—")
+      + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
+    $("btnInfoEdit").textContent = "정보 수정";
+  }
+  $("infoModal").classList.add("open");
+}
+$("btnInfoEdit").addEventListener("click", function(){
+  var it = db.items.filter(function(x){ return x.id === buyId; })[0];
+  if(!it) return;
+  closeAll();
+  openBuy(it);
+});
+
+$("buyFilter").addEventListener("change", renderBuy);
+$("buylist").addEventListener("click", function(e){
+  var inf = e.target.getAttribute("data-info");
+  if(inf){
+    var it = db.items.filter(function(x){ return x.id===inf; })[0];
+    if(it) openInfo(it);
+  }
+});
+$("buylist").addEventListener("change", function(e){
+  var id = e.target.getAttribute("data-buy");
+  if(!id) return;
+  var it = db.items.filter(function(x){ return x.id===id; })[0];
+  if(!it) return;
+  if(e.target.checked){
+    openBuy(it);
+  }else{
+    if(!confirm("‘"+it.name+"’의 구매 완료를 취소할까요?\n입력해둔 구매일자·금액·구매처는 그대로 남습니다.")){
+      renderBuy(); return;
+    }
+    it.bought = false;
+    push("upsert", it, it.name + " 구매 완료를 취소했습니다");
+  }
+});
 
 /* ───────── 용도 이동 ───────── */
 var moveId = null;
