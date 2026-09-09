@@ -372,7 +372,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v17</span>
+      <span class="ver">v18</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -420,7 +420,7 @@
         <thead>
           <tr>
             <th>물품</th><th>용도</th><th class="right">수량 (재고/기준)</th><th class="right">가격</th>
-            <th>구매일</th><th>교체일</th><th>교체 예정일</th><th>상태</th><th></th>
+            <th>구매일</th><th>다음 교체일</th><th>상태</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -549,11 +549,6 @@
           <input id="fNext" type="date">
           <p class="hint">날짜를 고르면 왼쪽 주기가 자동으로 맞춰집니다.</p>
         </div>
-      </div>
-      <div class="field">
-        <label for="fPlan">교체 예정일</label>
-        <input id="fPlan" type="date">
-        <p class="hint">실제로 교체하려는 날짜를 직접 정합니다. 주기 계산과는 별개입니다.</p>
       </div>
       <div class="field">
         <label>사진 (영수증·제품)</label>
@@ -874,12 +869,12 @@ function stockBadge(it){
   if(cur === base) return '<span class="badge full">재고 충족</span>';
   return '<span class="badge ok">여유 +'+(cur-base)+'</span>';
 }
-function planCell(it){
-  if(!it.plan) return "—";
-  var d = dday(it.plan);
+function nextCell(it){
+  if(!it.next) return "—";
+  var d = dday(it.next);
   var cls = (d !== null && d <= 0) ? "late" : ((d !== null && d <= 7) ? "warn" : "");
   var label = (d === null) ? "" : (d < 0 ? " ("+(-d)+"일 지남)" : (d === 0 ? " (오늘)" : " (D-"+d+")"));
-  return '<span class="'+(cls ? "plan "+cls : "plan")+'">'+fmtD(it.plan)+label+'</span>';
+  return '<span class="'+(cls ? "plan "+cls : "plan")+'">'+fmtD(it.next)+label+'</span>';
 }
 function replBadge(it){
   var s = statusOf(it);
@@ -919,8 +914,7 @@ function rowHtml(it){
         + mrow("수량", '<span class="num">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</span> '+stockBadge(it))
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+fmtD(it.date)+'</span>')
-        + mrow("교체일", '<span class="num">'+fmtD(it.next)+'</span>')
-        + mrow("예정일", '<span class="num">'+planCell(it)+'</span>')
+        + mrow("다음 교체일", '<span class="num">'+nextCell(it)+'</span>')
         + mrow("상태", '<span class="badge '+s.key+'">'+s.label+'</span>')
         + (it.memo ? mrow("메모", esc(it.memo)) : "")
       + '</div></td>'
@@ -928,8 +922,7 @@ function rowHtml(it){
     + '<td class="right num desktop-only">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</td>'
     + '<td class="right num desktop-only">'+won(it.price)+'</td>'
     + '<td class="num desktop-only">'+fmtD(it.date)+'</td>'
-    + '<td class="num desktop-only">'+fmtD(it.next)+'</td>'
-    + '<td class="num desktop-only">'+planCell(it)+'</td>'
+    + '<td class="num desktop-only">'+nextCell(it)+'</td>'
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
       + '<button class="iconbtn buy'+(it.bought?" on":"")+'" data-info="'+it.id+'">구매 정보</button>'
@@ -956,7 +949,7 @@ function renderItems(){
       var due = arr.filter(function(it){
         var k = statusOf(it).key; return k==="late" || k==="warn";
       }).length;
-      html += '<tr class="grp"><td colspan="9">'+esc(c)
+      html += '<tr class="grp"><td colspan="8">'+esc(c)
         + '<span class="gmeta">'+arr.length+'종 · '+won(sum)+'원'
         + (due ? ' · 교체 '+due+'건' : '')+'</span></td></tr>';
       arr.forEach(function(it){ html += rowHtml(it); });
@@ -1334,7 +1327,6 @@ function openModal(it){
   $("fUrl").value   = it ? (it.url||"") : "";
   $("fCycle").value = it && it.cycle ? it.cycle : "";
   $("fNext").value  = it ? (it.next||"") : "";
-  $("fPlan").value  = it ? (it.plan||"") : "";
   $("fMemo").value  = it ? (it.memo||"") : "";
   $("fDaily").checked = it ? !!it.daily : false;
   $("btnDelete").hidden = !it || !isMaster();
@@ -1384,7 +1376,7 @@ $("btnSave").addEventListener("click", function(){
     unit: $("fUnit").value.trim() || "개",
     price: +$("fPrice").value || 0,
     date: date, url: $("fUrl").value.trim(),
-    cycle: cycle, next: next, plan: $("fPlan").value,
+    cycle: cycle, next: next,
     memo: $("fMemo").value.trim(),
     daily: $("fDaily").checked,
     prevDate: "", prevNext: "", bought: false, vendor: "", photo: ""
@@ -1549,7 +1541,6 @@ function openInfo(it){
       + row("금액", '<span class="num">'+won(it.price)+'원 × '+(+it.qty||0)+esc(it.unit||"")+' = '+won((+it.price||0)*(+it.qty||0))+'원</span>')
       + row("구매처", esc(it.vendor || "—"))
       + row("링크", it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">구매 페이지 열기</a>' : "—")
-      + (it.plan ? row("교체 예정", '<span class="num">'+fmtD(it.plan)+'</span>') : "")
       + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
     $("btnInfoEdit").textContent = "재구매 기록";
   }
@@ -1666,11 +1657,11 @@ $("btnResetCheck").addEventListener("click", function(){
 
 /* ───────── CSV ───────── */
 $("btnCsv").addEventListener("click", function(){
-  var head = ["물품","용도","재고","기준수량","단위","개당가격","총액","구매완료","구매일","구매처","구매링크","교체주기(일)","다음교체일","교체예정일","상태","일일점검","메모"];
+  var head = ["물품","용도","재고","기준수량","단위","개당가격","총액","구매완료","구매일","구매처","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
   var lines = [head.join(",")];
   filtered().forEach(function(it){
     var row = [it.name, it.cat, stockOf(it), it.qty, it.unit, it.price, (+it.price||0)*(+it.qty||0),
-               it.bought?"Y":"N", it.date, it.vendor, it.url, it.cycle, it.next, it.plan,
+               it.bought?"Y":"N", it.date, it.vendor, it.url, it.cycle, it.next,
                statusOf(it).label + (isLow(it) ? " / 재고부족" : ""), it.daily?"Y":"N", it.memo];
     lines.push(row.map(function(v){
       v = (v==null ? "" : String(v));
