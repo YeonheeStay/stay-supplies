@@ -89,9 +89,11 @@
 
   .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
   table{width:100%;border-collapse:collapse}
-  th{text-align:left;font-size:12.5px;font-weight:600;color:var(--ink-3);padding:10px 12px;
+  th{text-align:left;font-size:12px;font-weight:600;color:var(--ink-3);padding:9px 9px;
      border-bottom:1px solid var(--line);background:#FAFBF9;white-space:nowrap}
-  td{padding:11px 12px;border-bottom:1px solid var(--line-2);font-size:14px;vertical-align:middle}
+  td{padding:10px 9px;border-bottom:1px solid var(--line-2);font-size:13.5px;vertical-align:middle}
+  td.num,td.right{white-space:nowrap}
+  .tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
   tr:last-child td{border-bottom:0}
   .cat{display:inline-block;font-size:12px;color:var(--ink-2);background:var(--line-2);
        border-radius:5px;padding:2px 7px;white-space:nowrap}
@@ -372,7 +374,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v18</span>
+      <span class="ver">v19</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -416,15 +418,15 @@
       <button class="btn ghost" id="btnCsv">CSV 내려받기</button>
     </div>
     <div class="panel">
-      <table id="tbl" class="cards">
+      <div class="tablewrap"><table id="tbl" class="cards">
         <thead>
           <tr>
-            <th>물품</th><th>용도</th><th class="right">수량 (재고/기준)</th><th class="right">가격</th>
-            <th>구매일</th><th>다음 교체일</th><th>상태</th><th></th>
+            <th>물품</th><th>용도</th><th class="right">수량</th><th class="right">가격</th>
+            <th>구매일</th><th>교체일</th><th>다음 교체일</th><th>상태</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
-      </table>
+      </table></div>
       <div class="empty" id="emptyItems" hidden></div>
     </div>
   </section>
@@ -536,7 +538,14 @@
         </div>
         <div class="field"><label for="fPrice">가격 (개당, 원)</label><input id="fPrice" type="number" min="0" step="100" placeholder="0"></div>
       </div>
-      <div class="field"><label for="fDate">구매일</label><input id="fDate" type="date"></div>
+      <div class="f2">
+        <div class="field"><label for="fDate">구매일</label><input id="fDate" type="date"></div>
+        <div class="field">
+          <label for="fReplaced">교체일</label>
+          <input id="fReplaced" type="date">
+          <p class="hint">마지막으로 교체한 날짜입니다.</p>
+        </div>
+      </div>
       <div class="field"><label for="fUrl">구매 사이트 링크</label><input id="fUrl" type="url" placeholder="https://"></div>
       <div class="f2">
         <div class="field">
@@ -873,8 +882,7 @@ function nextCell(it){
   if(!it.next) return "—";
   var d = dday(it.next);
   var cls = (d !== null && d <= 0) ? "late" : ((d !== null && d <= 7) ? "warn" : "");
-  var label = (d === null) ? "" : (d < 0 ? " ("+(-d)+"일 지남)" : (d === 0 ? " (오늘)" : " (D-"+d+")"));
-  return '<span class="'+(cls ? "plan "+cls : "plan")+'">'+fmtD(it.next)+label+'</span>';
+  return '<span class="'+(cls ? "plan "+cls : "plan")+'">'+fmtD(it.next)+'</span>';
 }
 function replBadge(it){
   var s = statusOf(it);
@@ -890,7 +898,7 @@ function buyBadge(it){
 }
 
 function renewedToday(it){
-  return !!(it.cycle && it.date && it.date === ymd(today()));
+  return !!(it.cycle && it.replaced && it.replaced === ymd(today()));
 }
 
 function mrow(label, value){
@@ -914,7 +922,8 @@ function rowHtml(it){
         + mrow("수량", '<span class="num">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</span> '+stockBadge(it))
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+fmtD(it.date)+'</span>')
-        + mrow("다음 교체일", '<span class="num">'+nextCell(it)+'</span>')
+        + mrow("교체일", '<span class="num">'+fmtD(it.replaced)+'</span>')
+        + mrow("다음 교체", '<span class="num">'+nextCell(it)+'</span>')
         + mrow("상태", '<span class="badge '+s.key+'">'+s.label+'</span>')
         + (it.memo ? mrow("메모", esc(it.memo)) : "")
       + '</div></td>'
@@ -922,6 +931,7 @@ function rowHtml(it){
     + '<td class="right num desktop-only">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</td>'
     + '<td class="right num desktop-only">'+won(it.price)+'</td>'
     + '<td class="num desktop-only">'+fmtD(it.date)+'</td>'
+    + '<td class="num desktop-only">'+fmtD(it.replaced)+'</td>'
     + '<td class="num desktop-only">'+nextCell(it)+'</td>'
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
@@ -949,7 +959,7 @@ function renderItems(){
       var due = arr.filter(function(it){
         var k = statusOf(it).key; return k==="late" || k==="warn";
       }).length;
-      html += '<tr class="grp"><td colspan="8">'+esc(c)
+      html += '<tr class="grp"><td colspan="9">'+esc(c)
         + '<span class="gmeta">'+arr.length+'종 · '+won(sum)+'원'
         + (due ? ' · 교체 '+due+'건' : '')+'</span></td></tr>';
       arr.forEach(function(it){ html += rowHtml(it); });
@@ -1324,6 +1334,7 @@ function openModal(it){
   $("fUnit").value  = it ? (it.unit||"개") : "개";
   $("fPrice").value = it ? (it.price||"") : "";
   $("fDate").value  = it ? (it.date||"") : "";
+  $("fReplaced").value = it ? (it.replaced||"") : "";
   $("fUrl").value   = it ? (it.url||"") : "";
   $("fCycle").value = it && it.cycle ? it.cycle : "";
   $("fNext").value  = it ? (it.next||"") : "";
@@ -1375,7 +1386,7 @@ $("btnSave").addEventListener("click", function(){
     stock: +$("fStock").value || 0,
     unit: $("fUnit").value.trim() || "개",
     price: +$("fPrice").value || 0,
-    date: date, url: $("fUrl").value.trim(),
+    date: date, replaced: $("fReplaced").value, url: $("fUrl").value.trim(),
     cycle: cycle, next: next,
     memo: $("fMemo").value.trim(),
     daily: $("fDaily").checked,
@@ -1430,10 +1441,10 @@ $("tbody").addEventListener("click", function(e){
   if(un){
     var it4 = db.items.filter(function(x){ return x.id===un; })[0];
     if(!it4) return;
-    var back = it4.prevDate ? it4.prevDate : "없음(비어 있음)";
-    if(!confirm("‘"+it4.name+"’의 교체 완료를 취소할까요?\n\n구매일: "+it4.date+" → "+back
-                +"\n다음 교체일: "+it4.next+" → "+(it4.prevNext || "없음"))) return;
-    it4.date = it4.prevDate || "";
+    var back = it4.prevDate ? fmtD(it4.prevDate) : "없음";
+    if(!confirm("‘"+it4.name+"’의 교체 완료를 취소할까요?\n\n교체일: "+fmtD(it4.replaced)+" → "+back
+                +"\n다음 교체일: "+fmtD(it4.next)+" → "+(it4.prevNext ? fmtD(it4.prevNext) : "없음"))) return;
+    it4.replaced = it4.prevDate || "";
     it4.next = it4.prevNext || "";
     it4.prevDate = ""; it4.prevNext = "";
     push("upsert", it4, it4.name + " 교체 완료를 취소했습니다");
@@ -1443,9 +1454,9 @@ $("tbody").addEventListener("click", function(e){
   if(rn){
     var it2 = db.items.filter(function(x){ return x.id===rn; })[0];
     if(!it2) return;
-    it2.prevDate = it2.date || "";
+    it2.prevDate = it2.replaced || "";
     it2.prevNext = it2.next || "";
-    it2.date = ymd(today());
+    it2.replaced = ymd(today());
     it2.next = ymd(addDays(today(), +it2.cycle||0));
     push("upsert", it2, it2.name + " 교체 완료로 기록했습니다");
   }
@@ -1657,11 +1668,11 @@ $("btnResetCheck").addEventListener("click", function(){
 
 /* ───────── CSV ───────── */
 $("btnCsv").addEventListener("click", function(){
-  var head = ["물품","용도","재고","기준수량","단위","개당가격","총액","구매완료","구매일","구매처","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
+  var head = ["물품","용도","재고","기준수량","단위","개당가격","총액","구매완료","구매일","교체일","구매처","구매링크","교체주기(일)","다음교체일","상태","일일점검","메모"];
   var lines = [head.join(",")];
   filtered().forEach(function(it){
     var row = [it.name, it.cat, stockOf(it), it.qty, it.unit, it.price, (+it.price||0)*(+it.qty||0),
-               it.bought?"Y":"N", it.date, it.vendor, it.url, it.cycle, it.next,
+               it.bought?"Y":"N", it.date, it.replaced, it.vendor, it.url, it.cycle, it.next,
                statusOf(it).label + (isLow(it) ? " / 재고부족" : ""), it.daily?"Y":"N", it.memo];
     lines.push(row.map(function(v){
       v = (v==null ? "" : String(v));
