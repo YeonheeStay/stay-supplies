@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>숙소 비품 관리</title>
 <meta name="description" content="에어비앤비 숙소 비품 재고·교체주기·구매내역 관리 (구글 시트 연동)">
 <link rel="preconnect" href="https://cdn.jsdelivr.net">
@@ -21,6 +21,7 @@
   body{
     font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
     background:var(--bg);color:var(--ink);font-size:15px;line-height:1.5;-webkit-text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;overscroll-behavior-y:contain;
   }
   h1,h2,h3,p{margin:0}
   button,input,select,textarea{font:inherit;color:inherit}
@@ -48,7 +49,7 @@
                       color:#fff;border-radius:8px;padding:6px 11px;font-size:13px}
   .top-actions button:hover{background:rgba(255,255,255,.2)}
 
-  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;background:var(--line);
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);
            border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-top:40px}
   .sum{background:var(--card);padding:16px 18px}
   .sum dt{font-size:12.5px;color:var(--ink-3);margin-bottom:6px}
@@ -220,8 +221,11 @@
   .fab span{font-size:19px;line-height:1}
 
   .mobile-only{display:none}
-  @media (max-width:760px){
+  @media (max-width:760px), (orientation:landscape) and (max-height:540px){
     .summary{grid-template-columns:1fr 1fr}
+    .sum{padding:13px 14px}
+    .sum dd{font-size:21px}
+    .sum dt{font-size:12px}
     .grid2{grid-template-columns:1fr}
     .desktop-only{display:none}
     .mobile-only{display:block}
@@ -240,8 +244,61 @@
     table.cards tr.grp{padding:0;border-left:0}
     table.cards tr.grp td{padding:9px 12px}
     .mcard{display:block}
-    .rowbtns{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+    .rowbtns{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);gap:6px}
+    .rowbtns .iconbtn{flex:1;min-height:40px;font-size:13.5px;text-align:center}
     .fab{display:flex}
+
+    /* 손가락으로 다루기 좋은 크기 */
+    .wrap{padding-left:12px;padding-right:12px}
+    .toolbar input[type=search]{flex:1 1 100%;min-height:42px;font-size:16px}
+    .toolbar select{flex:1 1 0;min-width:0;min-height:42px;font-size:15px}
+    .toolbar .btn{flex:1 1 0;min-height:42px}
+    .field input,.field select,.field textarea{font-size:16px;min-height:44px}
+    .checklist li{padding:14px}
+    .checklist input[type=checkbox]{width:24px;height:24px}
+    .stepper button{width:42px;height:42px;font-size:20px}
+    .stepper .qv{line-height:42px;min-width:62px}
+    .chk{min-height:42px}
+    .check-head select{flex:1 1 0;min-width:0;min-height:40px;
+                       background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+    .check-head .btn{min-height:40px}
+
+    /* 탭과 필터 바를 화면 위에 고정 */
+    nav.tabs{position:sticky;top:0;z-index:30;background:var(--bg);margin-top:16px;
+             box-shadow:0 6px 10px -8px rgba(22,34,46,.25)}
+    nav.tabs button{padding:11px 13px}
+    .focusbar{position:sticky;top:44px;z-index:29}
+
+    /* 팝업을 아래에서 올라오는 시트 형태로 */
+    .scrim{padding:0}
+    .scrim.open{align-items:flex-end}
+    .sheet{margin:0;max-width:100%;border-radius:16px 16px 0 0;max-height:92vh;
+           display:flex;flex-direction:column}
+    .sheet header{position:sticky;top:0;background:var(--card);border-radius:16px 16px 0 0;z-index:2}
+    .sheet .body{overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+    .sheet footer{position:sticky;bottom:0;background:var(--card);
+                  padding-bottom:max(14px,env(safe-area-inset-bottom))}
+    .sheet footer .btn{flex:1;min-height:46px}
+    .catbtn{min-height:42px}
+
+    .fab{bottom:max(18px,env(safe-area-inset-bottom));right:14px;padding:13px 18px}
+    .wrap{padding-bottom:96px}
+  }
+
+  /* 가로로 눕혔을 때: 위아래 여백을 줄여 목록을 더 보여줌 */
+  @media (orientation:landscape) and (max-height:540px){
+    header.top{padding:12px 0 14px;margin-bottom:-24px}
+    .summary{margin-top:34px;grid-template-columns:repeat(5,1fr)}
+    .sum{padding:10px 12px}
+    .sum dd{font-size:19px}
+    .sumgo{margin-top:2px}
+    nav.tabs{margin:14px 0 10px}
+    .brand h1{font-size:16px}
+    .sheet{max-height:96vh;border-radius:14px 14px 0 0}
+    .sheet .body{padding:14px 18px}
+    .f2{grid-template-columns:1fr 1fr}
+    .field{margin-bottom:10px}
+    .fab{padding:10px 16px;font-size:14px}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
@@ -252,7 +309,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v11</span>
+      <span class="ver">v13</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -410,12 +467,12 @@
         <div class="field">
           <label for="fCycle">교체 주기 (일)</label>
           <input id="fCycle" type="number" min="0" step="1" placeholder="예: 180">
-          <p class="hint">주기를 넣으면 다음 교체일이 자동 계산됩니다.</p>
+          <p class="hint">숫자를 넣으면 오른쪽 날짜가 바로 계산됩니다.</p>
         </div>
         <div class="field">
           <label for="fNext">다음 교체일</label>
           <input id="fNext" type="date">
-          <p class="hint">직접 지정하면 이 날짜가 우선합니다.</p>
+          <p class="hint">날짜를 고르면 왼쪽 주기가 자동으로 맞춰집니다.</p>
         </div>
       </div>
       <div class="field"><label for="fMemo">메모</label><textarea id="fMemo" rows="2" placeholder="보관 위치, 규격, 재구매 시 주의사항"></textarea></div>
@@ -1102,8 +1159,15 @@ document.querySelectorAll("nav.tabs button").forEach(function(b){
 
 /* ───────── 모달 ───────── */
 function closeAll(){ ["modal","cfgModal","moveModal","buyModal","infoModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
+// 눌러서 뗀 지점이 모두 바깥 배경일 때만 닫습니다.
+// (숫자 입력칸의 화살표를 누르는 도중 닫히던 문제 방지)
+var downOnScrim = false;
+document.addEventListener("pointerdown", function(e){
+  downOnScrim = !!(e.target.classList && e.target.classList.contains("scrim"));
+});
 document.addEventListener("click", function(e){
-  if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")) closeAll();
+  if(e.target.matches("[data-close]")){ closeAll(); return; }
+  if(e.target.classList && e.target.classList.contains("scrim") && downOnScrim) closeAll();
 });
 document.addEventListener("keydown", function(e){ if(e.key === "Escape") closeAll(); });
 
@@ -1127,6 +1191,25 @@ function openModal(it){
   setTimeout(function(){ $("fName").focus(); }, 30);
 }
 $("btnAdd").addEventListener("click", function(){ openModal(null); });
+
+// 교체 주기와 다음 교체일을 서로 맞춰줌 (기준은 구매일, 없으면 오늘)
+function cycleBase(){
+  return $("fDate").value ? parse($("fDate").value) : today();
+}
+function syncNextFromCycle(){
+  var c = +$("fCycle").value || 0;
+  $("fNext").value = c ? ymd(addDays(cycleBase(), c)) : "";
+}
+$("fCycle").addEventListener("input", syncNextFromCycle);
+$("fDate").addEventListener("input", function(){
+  if(+$("fCycle").value) syncNextFromCycle();
+});
+$("fNext").addEventListener("input", function(){
+  var n = $("fNext").value;
+  if(!n){ $("fCycle").value = ""; return; }
+  var d = Math.round((parse(n) - cycleBase()) / 86400000);
+  $("fCycle").value = d > 0 ? d : 0;
+});
 $("fabAdd").addEventListener("click", function(){ goTab("items"); openModal(null); });
 document.querySelectorAll("[data-add]").forEach(function(b){
   b.addEventListener("click", function(){ openModal(null); });
@@ -1290,7 +1373,7 @@ $("btnBuySave").addEventListener("click", function(){
 
 // 모달을 저장 없이 닫으면 체크 상태를 원래대로 되돌림
 $("buyModal").addEventListener("click", function(e){
-  if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")) renderBuy();
+  if(e.target.matches("[data-close]") || (e.target.classList.contains("scrim") && downOnScrim)) renderBuy();
 });
 
 function openInfo(it){
@@ -1467,7 +1550,7 @@ function showAlarm(){
   $("alarm").classList.add("open");
 }
 $("alarm").addEventListener("click", function(e){
-  if(e.target.matches("[data-close]") || e.target.classList.contains("scrim")) LS.set(DISMISS_KEY, ymd(today()));
+  if(e.target.matches("[data-close]") || (e.target.classList.contains("scrim") && downOnScrim)) LS.set(DISMISS_KEY, ymd(today()));
 });
 $("btnAlarmGo").addEventListener("click", function(){
   LS.set(DISMISS_KEY, ymd(today()));
