@@ -374,7 +374,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v19</span>
+      <span class="ver">v20</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -393,6 +393,7 @@
     <button role="tab" aria-selected="false" data-tab="daily">일일 점검<span class="tc" id="tc-daily"></span></button>
     <button role="tab" aria-selected="false" data-tab="buy">구매 리스트<span class="tc" id="tc-buy"></span></button>
     <button role="tab" aria-selected="false" data-tab="stock">재고 관리<span class="tc" id="tc-stock"></span></button>
+    <button role="tab" aria-selected="false" data-tab="replace">교체 관리<span class="tc" id="tc-replace"></span></button>
     <button role="tab" aria-selected="false" data-tab="stats">총계<span class="tc" id="tc-stats"></span></button>
     <button role="tab" aria-selected="false" data-tab="users" id="tabUsers" hidden>계정 관리<span class="tc" id="tc-users"></span></button>
   </nav>
@@ -485,6 +486,26 @@
     <div class="panel">
       <ul class="checklist" id="stocklist"></ul>
       <div class="empty" id="emptyStock" hidden>
+        <strong>해당하는 품목이 없습니다</strong>
+        위 선택을 바꿔보세요.
+      </div>
+    </div>
+  </section>
+
+  <section id="tab-replace" hidden>
+    <div class="check-head">
+      <span class="date">교체 현황</span>
+      <div class="progress"><i id="replBar" style="width:0%"></i></div>
+      <span class="qty num" id="replText"></span>
+      <select id="replFilter">
+        <option value="">전체 보기</option>
+        <option value="due">교체 필요만</option>
+        <option value="today">오늘 교체한 것만</option>
+      </select>
+    </div>
+    <div class="panel">
+      <ul class="checklist" id="repllist"></ul>
+      <div class="empty" id="emptyRepl" hidden>
         <strong>해당하는 품목이 없습니다</strong>
         위 선택을 바꿔보세요.
       </div>
@@ -1156,6 +1177,51 @@ function renderStock(){
   $("stockText").textContent = low ? ("부족 " + low + "건") : "부족 없음";
 }
 
+function renderReplace(){
+  var mode = $("replFilter").value;
+  var list = db.items.filter(function(it){
+    if(!it.cycle && !it.next) return false;
+    if(mode === "due") return replSoon(it);
+    if(mode === "today") return renewedToday(it);
+    return true;
+  }).sort(function(a,b){
+    var da = statusOf(a).d, dbb = statusOf(b).d;
+    return da - dbb || (a.cat||"").localeCompare(b.cat||"","ko");
+  });
+
+  var groups = {};
+  list.forEach(function(it){
+    var c = it.cat || "미분류";
+    if(!groups[c]) groups[c] = [];
+    groups[c].push(it);
+  });
+
+  var html = "";
+  Object.keys(groups).sort(function(a,b){ return a.localeCompare(b,"ko"); }).forEach(function(c){
+    var arr = groups[c];
+    var dueN = arr.filter(replSoon).length;
+    html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
+      + '<span class="memo">'+arr.length+'종'+(dueN ? ' · 교체 필요 '+dueN+'건' : '')+'</span></span></li>';
+    arr.forEach(function(it){
+      var on = renewedToday(it);
+      html += '<li class="'+(on?"done":"")+'">'
+        + '<input type="checkbox" data-repl="'+it.id+'"'+(on?" checked":"")+' aria-label="'+esc(it.name)+' 교체 완료">'
+        + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
+          + replBadge(it) + '</span>'
+        + '<span class="repl">'+(it.cycle ? it.cycle+'일 주기 · ' : '')
+          + '교체 '+fmtD(it.replaced)+' → 다음 '+fmtD(it.next)+'</span></span>'
+        + '</li>';
+    });
+  });
+  $("repllist").innerHTML = html;
+  $("emptyRepl").hidden = list.length > 0;
+
+  var all = list.length;
+  var due = db.items.filter(replSoon).length;
+  $("replBar").style.width = (all ? Math.round((all-due)/all*100) : 0) + "%";
+  $("replText").textContent = due ? ("교체 필요 " + due + "건") : "모두 여유";
+}
+
 function renderStats(){
   var byCat = {};
   db.items.forEach(function(it){
@@ -1289,6 +1355,7 @@ function renderTabCounts(){
   set("daily", left, false);
   set("buy", todo, false);
   set("stock", low, true);
+  set("replace", db.items.filter(replSoon).length, true);
   set("stats", 0, false);
   var pending = (db.users||[]).filter(function(u){ return u.status === "pending"; }).length;
   if($("tc-users")) set("users", pending, true);
@@ -1296,7 +1363,7 @@ function renderTabCounts(){
 
 function renderAll(){
   renderCats(); renderSummary(); renderItems(); renderDaily();
-  renderBuy(); renderStock(); renderStats(); renderUsers(); renderTabCounts();
+  renderBuy(); renderStock(); renderReplace(); renderStats(); renderUsers(); renderTabCounts();
 }
 
 /* ───────── 탭 ───────── */
@@ -1304,7 +1371,7 @@ function goTab(name){
   document.querySelectorAll("nav.tabs button").forEach(function(x){
     x.setAttribute("aria-selected", x.dataset.tab===name ? "true" : "false");
   });
-  ["items","daily","buy","stock","stats","users"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
+  ["items","daily","buy","stock","replace","stats","users"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
 }
 document.querySelectorAll("nav.tabs button").forEach(function(b){
   b.addEventListener("click", function(){ goTab(b.dataset.tab); });
@@ -1464,6 +1531,33 @@ $("tbody").addEventListener("click", function(e){
 
 ["q","fCat","fStatus"].forEach(function(id){ $(id).addEventListener("input", renderItems); });
 $("fGroup").addEventListener("change", renderItems);
+
+/* ───────── 교체 관리 ───────── */
+$("replFilter").addEventListener("change", renderReplace);
+$("repllist").addEventListener("change", function(e){
+  var id = e.target.getAttribute("data-repl");
+  if(!id) return;
+  var it = db.items.filter(function(x){ return x.id === id; })[0];
+  if(!it) return;
+
+  if(e.target.checked){
+    it.prevDate = it.replaced || "";
+    it.prevNext = it.next || "";
+    it.replaced = ymd(today());
+    if(it.cycle) it.next = ymd(addDays(today(), +it.cycle||0));
+    push("upsert", it, it.name + " 교체 완료로 기록했습니다");
+  }else{
+    var back = it.prevDate ? fmtD(it.prevDate) : "없음";
+    if(!confirm("‘"+it.name+"’의 교체 완료를 취소할까요?\n\n교체일: "+fmtD(it.replaced)+" → "+back
+                +"\n다음 교체일: "+fmtD(it.next)+" → "+(it.prevNext ? fmtD(it.prevNext) : "없음"))){
+      renderReplace(); return;
+    }
+    it.replaced = it.prevDate || "";
+    it.next = it.prevNext || "";
+    it.prevDate = ""; it.prevNext = "";
+    push("upsert", it, it.name + " 교체 완료를 취소했습니다");
+  }
+});
 
 /* ───────── 재고 수량 조절 ───────── */
 var qtyTimers = {}, qtyFrom = {};
