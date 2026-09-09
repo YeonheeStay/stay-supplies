@@ -220,6 +220,37 @@
        font-size:15px;font-weight:700;box-shadow:0 8px 22px rgba(22,34,46,.3)}
   .fab span{font-size:19px;line-height:1}
 
+  .gate{position:fixed;inset:0;background:var(--bg);z-index:90;display:none;
+        align-items:center;justify-content:center;padding:20px;overflow-y:auto}
+  .gate.open{display:flex}
+  .gatebox{background:var(--card);border:1px solid var(--line);border-radius:14px;
+           width:100%;max-width:380px;padding:26px 24px;margin:auto;
+           box-shadow:0 10px 30px rgba(22,34,46,.1)}
+  .gatebox h1{font-size:19px;font-weight:700;margin-bottom:4px}
+  .gatebox p.sub{font-size:13.5px;color:var(--ink-3);margin-bottom:20px}
+  .gatetabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:18px}
+  .gatetabs button{flex:1;background:none;border:0;padding:9px 0;font-size:14.5px;font-weight:600;
+                   color:var(--ink-3);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .gatetabs button.on{color:var(--ink);border-bottom-color:var(--ink)}
+  .gatebox .btn{width:100%;min-height:46px;margin-top:6px}
+  .gatemsg{font-size:13px;margin-top:12px;padding:10px 12px;border-radius:8px;display:none}
+  .gatemsg.show{display:block}
+  .gatemsg.err{background:var(--late-bg);color:var(--late)}
+  .gatemsg.ok{background:var(--ok-bg);color:var(--ok)}
+  .who{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:#CFDAE3;
+       background:rgba(255,255,255,.1);border-radius:20px;padding:4px 11px}
+  .who b{color:#fff;font-weight:600}
+  .photo{margin-top:8px}
+  .photo img{width:100%;max-height:220px;object-fit:cover;border-radius:9px;border:1px solid var(--line)}
+  .photorow{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+  .userrow td{vertical-align:middle}
+  .rolechip{font-size:11.5px;border-radius:5px;padding:2px 7px;background:var(--line-2);color:var(--ink-2)}
+  .rolechip.master{background:var(--ink);color:#fff}
+  .stchip{font-size:11.5px;border-radius:20px;padding:3px 9px;font-weight:600}
+  .stchip.pending{background:var(--warn-bg);color:var(--warn)}
+  .stchip.approved{background:var(--ok-bg);color:var(--ok)}
+  .stchip.blocked{background:var(--late-bg);color:var(--late)}
+
   .mobile-only{display:none}
   @media (max-width:760px), (orientation:landscape) and (max-height:540px){
     .summary{grid-template-columns:1fr 1fr}
@@ -305,16 +336,46 @@
 </head>
 <body>
 
+<div class="gate" id="gate">
+  <div class="gatebox">
+    <h1>연희스테이 비품 관리</h1>
+    <p class="sub" id="gateSub">계속하려면 로그인해 주세요</p>
+
+    <div id="gateUrl" hidden>
+      <div class="field">
+        <label for="gUrl">서버 주소</label>
+        <input id="gUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+        <p class="hint">Apps Script를 웹앱으로 배포하면 나오는 <code>/exec</code> 주소입니다.</p>
+      </div>
+      <button class="btn" id="btnGUrl">연결하기</button>
+    </div>
+
+    <div id="gateAuth" hidden>
+      <div class="gatetabs">
+        <button type="button" class="on" data-gtab="login">로그인</button>
+        <button type="button" data-gtab="signup">가입 요청</button>
+      </div>
+      <div class="field"><label for="gId">아이디</label><input id="gId" autocomplete="username"></div>
+      <div class="field" id="gNameWrap" hidden><label for="gName">이름</label><input id="gName"></div>
+      <div class="field"><label for="gPw">비밀번호</label><input id="gPw" type="password" autocomplete="current-password"></div>
+      <button class="btn" id="btnGSubmit">로그인</button>
+      <button class="btn ghost" id="btnGReset" style="width:100%;margin-top:8px">서버 주소 다시 입력</button>
+    </div>
+
+    <div class="gatemsg" id="gateMsg"></div>
+  </div>
+</div>
+
 <header class="top">
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v15</span>
+      <span class="ver">v16</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
+      <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
-        <button type="button" id="btnSheet" hidden>시트 열기</button>
-        <button type="button" id="btnConfig">연결 설정</button>
+        <button type="button" id="btnLogout">로그아웃</button>
       </div>
     </div>
   </div>
@@ -329,6 +390,7 @@
     <button role="tab" aria-selected="false" data-tab="buy">구매 리스트<span class="tc" id="tc-buy"></span></button>
     <button role="tab" aria-selected="false" data-tab="stock">재고 관리<span class="tc" id="tc-stock"></span></button>
     <button role="tab" aria-selected="false" data-tab="stats">총계<span class="tc" id="tc-stats"></span></button>
+    <button role="tab" aria-selected="false" data-tab="users" id="tabUsers" hidden>계정 관리<span class="tc" id="tc-users"></span></button>
   </nav>
 
   <div class="focusbar" id="focusBar" hidden>
@@ -356,7 +418,7 @@
         <thead>
           <tr>
             <th>물품</th><th>용도</th><th class="right">수량 (재고/기준)</th><th class="right">가격</th>
-            <th>구매일</th><th>구매처</th><th>다음 교체일</th><th>상태</th><th></th>
+            <th>구매일</th><th>교체일</th><th>상태</th><th></th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -425,6 +487,13 @@
     </div>
   </section>
 
+  <section id="tab-users" hidden>
+    <div class="panel">
+      <h3>계정 목록</h3>
+      <table><tbody id="userList"></tbody></table>
+    </div>
+  </section>
+
   <section id="tab-stats" hidden>
     <div class="grid2">
       <div class="panel"><h3>용도별 집계</h3><table><tbody id="statCat"></tbody></table></div>
@@ -479,6 +548,16 @@
           <p class="hint">날짜를 고르면 왼쪽 주기가 자동으로 맞춰집니다.</p>
         </div>
       </div>
+      <div class="field">
+        <label>사진 (영수증·제품)</label>
+        <div class="photorow">
+          <input type="file" id="fPhotoFile" accept="image/*" hidden>
+          <button type="button" class="btn ghost sm" id="btnPhotoPick">사진 선택</button>
+          <button type="button" class="btn ghost sm" id="btnPhotoDel" hidden>사진 삭제</button>
+          <span class="hint" id="photoHint">저장된 물품에만 첨부할 수 있습니다.</span>
+        </div>
+        <div class="photo" id="photoBox" hidden><img id="photoImg" alt="첨부된 사진"></div>
+      </div>
       <div class="field"><label for="fMemo">메모</label><textarea id="fMemo" rows="2" placeholder="보관 위치, 규격, 재구매 시 주의사항"></textarea></div>
       <div class="field" style="margin-bottom:0">
         <label class="checkline"><input type="checkbox" id="fDaily"> 일일 점검 대상에 넣기</label>
@@ -488,35 +567,6 @@
       <button class="btn danger" id="btnDelete" hidden>삭제</button>
       <button class="btn ghost" data-close>취소</button>
       <button class="btn" id="btnSave">저장</button>
-    </footer>
-  </div>
-</div>
-
-<div class="scrim" id="cfgModal">
-  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cfgTitle">
-    <header><h2 id="cfgTitle">구글 시트 연결</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
-    <div class="body">
-      <div class="notice">
-        스프레드시트에 <code>Code.gs</code>를 붙여넣고 웹앱으로 배포하면 주소가 나옵니다. 그 주소와 인증 키를 넣어주세요. 자세한 순서는 함께 받은 안내서에 있습니다.
-      </div>
-      <div class="field">
-        <label for="cfgUrl">웹앱 주소</label>
-        <input id="cfgUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec">
-        <p class="hint"><code>/exec</code> 로 끝나는 주소여야 합니다.</p>
-      </div>
-      <div class="field">
-        <label for="cfgKey">인증 키</label>
-        <input id="cfgKey" placeholder="Code.gs 의 API_KEY 값">
-      </div>
-      <div class="field" style="margin-bottom:0">
-        <label for="cfgSheet">스프레드시트 주소 (선택)</label>
-        <input id="cfgSheet" type="url" placeholder="https://docs.google.com/spreadsheets/...">
-        <p class="hint">넣어두면 상단 ‘시트 열기’ 버튼으로 원본 데이터를 바로 볼 수 있습니다.</p>
-      </div>
-    </div>
-    <footer>
-      <button class="btn ghost" id="btnDisconnect">연결 해제</button>
-      <button class="btn" id="btnCfgSave">연결하고 불러오기</button>
     </footer>
   </div>
 </div>
@@ -603,7 +653,8 @@ var LS = {
 };
 var CFG_KEY="supplies-cfg", CACHE_KEY="supplies-cache", DISMISS_KEY="supplies-dismissed";
 
-var cfg = LS.get(CFG_KEY, {url:"", key:"", sheet:""});
+var cfg = LS.get(CFG_KEY, {url:"", token:"", sheet:""});
+var me = LS.get("supplies-me", null);
 var db  = LS.get(CACHE_KEY, {items:[], checks:{}});
 if(!db.items) db.items = [];
 if(!db.checks) db.checks = {};
@@ -617,6 +668,12 @@ function ymd(d){ var m=("0"+(d.getMonth()+1)).slice(-2), day=("0"+d.getDate()).s
 function parse(s){ if(!s) return null; var p=String(s).split("-"); return new Date(+p[0], +p[1]-1, +p[2]); }
 function addDays(d,n){ var x=new Date(d.getTime()); x.setDate(x.getDate()+n); return x; }
 function dday(s){ var d=parse(s); return d ? Math.round((d-today())/86400000) : null; }
+function fmtD(v){
+  if(!v) return "—";
+  var t = String(v).slice(0,10).split("-");
+  if(t.length < 3) return String(v);
+  return t[0].slice(2)+"."+t[1]+"."+t[2];
+}
 function won(n){ return (+n||0).toLocaleString("ko-KR"); }
 function esc(s){
   return String(s==null?"":s).replace(/[&<>"']/g, function(c){
@@ -625,7 +682,8 @@ function esc(s){
 }
 
 /* ───────── 서버 통신 ───────── */
-function connected(){ return !!(cfg.url && cfg.key); }
+function connected(){ return !!(cfg.url && cfg.token); }
+function isMaster(){ return !!(me && me.role === "master"); }
 function setSync(state, text){
   var p = $("syncPill");
   p.className = "sync" + (state ? " "+state : "");
@@ -650,15 +708,23 @@ function jsonp(url){
   });
 }
 function apiGet(){
-  var url = cfg.url + "?key=" + encodeURIComponent(cfg.key) + "&t=" + Date.now();
+  var url = cfg.url + "?token=" + encodeURIComponent(cfg.token) + "&t=" + Date.now();
   return fetch(url, {redirect:"follow"}).then(function(r){ return r.json(); })
     .catch(function(){ return jsonp(url); });
+}
+function apiRaw(url, action, payload){
+  return fetch(url, {
+    method:"POST",
+    headers:{"Content-Type":"text/plain;charset=utf-8"},
+    body: JSON.stringify({action:action, payload:payload}),
+    redirect:"follow"
+  }).then(function(r){ return r.json(); });
 }
 function apiPost(action, payload){
   return fetch(cfg.url, {
     method:"POST",
     headers:{"Content-Type":"text/plain;charset=utf-8"},
-    body: JSON.stringify({key:cfg.key, action:action, payload:payload}),
+    body: JSON.stringify({token:cfg.token, action:action, payload:payload}),
     redirect:"follow"
   }).then(function(r){ return r.json(); });
 }
@@ -680,7 +746,12 @@ function adopt(res){
       x.stock = prev[x.id].stock;
     }
   });
+  if(res.data.me){
+    me = res.data.me;
+    LS.set("supplies-me", me);
+  }
   db = {
+    users: res.data.users || (db && db.users) || [],
     items: items,
     checks: res.data.checks || {},
     purchases: res.data.purchases || [],
@@ -697,7 +768,9 @@ function pull(silent){
     adopt(res); busy--; mark(); renderAll();
     if(!silent) toast("구글 시트에서 불러왔습니다");
   }).catch(function(err){
-    busy--; setSync("err","연결 실패"); renderAll();
+    busy--;
+    if(/로그인/.test(err.message)){ openGate("auth", err.message); return; }
+    setSync("err","연결 실패"); renderAll();
     toast("시트를 불러오지 못했습니다 · " + err.message);
   });
 }
@@ -714,8 +787,10 @@ function push(action, payload, okMsg){
     adopt(res); mark(); renderAll();
     if(okMsg) toast(okMsg);
   }).catch(function(err){
-    busy--; setSync("err","저장 실패");
-    toast("시트에 저장하지 못했습니다 · " + err.message + " — 새로고침으로 상태를 확인하세요");
+    busy--;
+    if(/로그인/.test(err.message)){ openGate("auth", err.message); return; }
+    setSync("err","저장 실패");
+    toast("저장하지 못했습니다 · " + err.message);
   });
 }
 
@@ -829,26 +904,24 @@ function rowHtml(it){
         + mrow("구매", buyBadge(it))
         + mrow("수량", '<span class="num">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</span> '+stockBadge(it))
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
-        + mrow("구매일", '<span class="num">'+(it.date||"—")+'</span>')
-        + mrow("구매처", link)
-        + mrow("교체일", '<span class="num">'+(it.next||"—")+'</span>')
+        + mrow("구매일", '<span class="num">'+fmtD(it.date)+'</span>')
+        + mrow("교체일", '<span class="num">'+fmtD(it.next)+'</span>')
         + mrow("상태", '<span class="badge '+s.key+'">'+s.label+'</span>')
         + (it.memo ? mrow("메모", esc(it.memo)) : "")
       + '</div></td>'
     + '<td class="desktop-only"><span class="cat">'+esc(it.cat||"미분류")+'</span></td>'
     + '<td class="right num desktop-only">'+stockOf(it)+' / '+(+it.qty||0)+esc(it.unit||"")+'</td>'
     + '<td class="right num desktop-only">'+won(it.price)+'</td>'
-    + '<td class="num desktop-only">'+(it.date||"—")+'</td>'
-    + '<td class="desktop-only">'+link+'</td>'
-    + '<td class="num desktop-only">'+(it.next||"—")+'</td>'
+    + '<td class="num desktop-only">'+fmtD(it.date)+'</td>'
+    + '<td class="num desktop-only">'+fmtD(it.next)+'</td>'
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
       + '<button class="iconbtn buy'+(it.bought?" on":"")+'" data-info="'+it.id+'">구매 정보</button>'
       + (it.cycle ? (renewedToday(it)
           ? '<button class="iconbtn done" data-undo="'+it.id+'">교체 완료됨</button>'
           : '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>') : '')
-      + '<button class="iconbtn" data-mv="'+it.id+'">용도 이동</button>'
-      + '<button class="iconbtn" data-edit="'+it.id+'">수정</button>'
+      + (isMaster() ? '<button class="iconbtn" data-mv="'+it.id+'">용도 이동</button>'
+                    + '<button class="iconbtn" data-edit="'+it.id+'">수정</button>' : '')
     + '</div></td></tr>';
 }
 
@@ -867,7 +940,7 @@ function renderItems(){
       var due = arr.filter(function(it){
         var k = statusOf(it).key; return k==="late" || k==="warn";
       }).length;
-      html += '<tr class="grp"><td colspan="9">'+esc(c)
+      html += '<tr class="grp"><td colspan="8">'+esc(c)
         + '<span class="gmeta">'+arr.length+'종 · '+won(sum)+'원'
         + (due ? ' · 교체 '+due+'건' : '')+'</span></td></tr>';
       arr.forEach(function(it){ html += rowHtml(it); });
@@ -881,10 +954,10 @@ function renderItems(){
   if(list.length){ e.hidden = true; $("tbl").hidden = false; return; }
   $("tbl").hidden = true; e.hidden = false;
   if(!connected()){
-    e.innerHTML = '<strong>구글 시트를 아직 연결하지 않았습니다</strong>'
-      + '웹앱 주소와 인증 키를 넣으면 시트의 비품 목록을 바로 불러옵니다.'
-      + '<div><button class="btn" id="emptyCfg">연결 설정 열기</button></div>';
-    $("emptyCfg").addEventListener("click", openCfg);
+    e.innerHTML = '<strong>로그인이 필요합니다</strong>'
+      + '로그인하면 시트의 비품 목록을 불러옵니다.'
+      + '<div><button class="btn" id="emptyCfg">로그인 화면 열기</button></div>';
+    $("emptyCfg").addEventListener("click", function(){ openGate("auth"); });
   }else if(!db.items.length){
     e.innerHTML = '<strong>시트에 등록된 물품이 없습니다</strong>'
       + 'Apps Script 에서 setup 함수를 실행하면 기본 비품 목록 50종이 들어갑니다. 직접 추가해도 됩니다.';
@@ -959,7 +1032,7 @@ function renderBuy(){
         + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
         + '<span class="memo">'+(+it.qty||0)+esc(it.unit||"")
         + (it.bought
-            ? ' · '+won((+it.price||0)*(+it.qty||0))+'원'+(it.vendor ? ' · '+esc(it.vendor) : '')+(it.date ? ' · '+it.date : '')
+            ? ' · '+won((+it.price||0)*(+it.qty||0))+'원'+(it.vendor ? ' · '+esc(it.vendor) : '')+(it.date ? ' · '+fmtD(it.date) : '')
             : ' · 예상 '+won((+it.price||0)*(+it.qty||0))+'원')
         + '</span>' + alertBadges(it) + '</span>'
         + (it.bought ? '<button class="iconbtn buy on" data-info="'+it.id+'">정보</button>' : '')
@@ -1005,7 +1078,7 @@ function replText(it){
   if(it.cycle) parts.push(it.cycle + "일 주기");
   if(it.next){
     var s = statusOf(it);
-    parts.push("교체 " + it.next + " (" + s.label + ")");
+    parts.push("교체 " + fmtD(it.next) + " (" + s.label + ")");
   }
   return parts.length ? parts.join(" · ") : "교체 주기 없음";
 }
@@ -1115,7 +1188,7 @@ function renderStats(){
     rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">다가오는 교체</td></tr>';
     rows += upcoming.map(function(it){
       return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
-        + '<td class="right num">'+it.next+'<span class="memo">'+statusOf(it).label+'</span></td></tr>';
+        + '<td class="right num">'+fmtD(it.next)+'<span class="memo">'+statusOf(it).label+'</span></td></tr>';
     }).join("");
   }
   $("statSchedule").innerHTML = rows || '<tr><td class="empty">지금 확인할 항목이 없습니다.</td></tr>';
@@ -1140,7 +1213,7 @@ function renderStats(){
     hrows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">최근 구매</td></tr>';
     hrows += hist.slice(0,10).map(function(r){
       return '<tr><td><span class="name">'+esc(r.name)+'</span>'
-        + '<span class="memo">'+esc(r.date || String(r.ts).slice(0,10))
+        + '<span class="memo">'+fmtD(r.date || String(r.ts).slice(0,10))
         + (r.vendor ? ' · '+esc(r.vendor) : '')+'</span></td>'
         + '<td class="right num">'+won(r.total)+'원<span class="memo">'+(+r.qty||0)+'개</span></td></tr>';
     }).join("");
@@ -1198,11 +1271,13 @@ function renderTabCounts(){
   set("buy", todo, false);
   set("stock", low, true);
   set("stats", 0, false);
+  var pending = (db.users||[]).filter(function(u){ return u.status === "pending"; }).length;
+  if($("tc-users")) set("users", pending, true);
 }
 
 function renderAll(){
   renderCats(); renderSummary(); renderItems(); renderDaily();
-  renderBuy(); renderStock(); renderStats(); renderTabCounts();
+  renderBuy(); renderStock(); renderStats(); renderUsers(); renderTabCounts();
 }
 
 /* ───────── 탭 ───────── */
@@ -1210,14 +1285,14 @@ function goTab(name){
   document.querySelectorAll("nav.tabs button").forEach(function(x){
     x.setAttribute("aria-selected", x.dataset.tab===name ? "true" : "false");
   });
-  ["items","daily","buy","stock","stats"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
+  ["items","daily","buy","stock","stats","users"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
 }
 document.querySelectorAll("nav.tabs button").forEach(function(b){
   b.addEventListener("click", function(){ goTab(b.dataset.tab); });
 });
 
 /* ───────── 모달 ───────── */
-function closeAll(){ ["modal","cfgModal","moveModal","buyModal","infoModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
+function closeAll(){ ["modal","moveModal","buyModal","infoModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
 // 눌러서 뗀 지점이 모두 바깥 배경일 때만 닫습니다.
 // (숫자 입력칸의 화살표를 누르는 도중 닫히던 문제 방지)
 var downOnScrim = false;
@@ -1245,7 +1320,8 @@ function openModal(it){
   $("fNext").value  = it ? (it.next||"") : "";
   $("fMemo").value  = it ? (it.memo||"") : "";
   $("fDaily").checked = it ? !!it.daily : false;
-  $("btnDelete").hidden = !it;
+  $("btnDelete").hidden = !it || !isMaster();
+  showPhoto(it ? (it.photo||"") : "");
   $("modal").classList.add("open");
   setTimeout(function(){ $("fName").focus(); }, 30);
 }
@@ -1294,12 +1370,13 @@ $("btnSave").addEventListener("click", function(){
     cycle: cycle, next: next,
     memo: $("fMemo").value.trim(),
     daily: $("fDaily").checked,
-    prevDate: "", prevNext: "", bought: false, vendor: ""
+    prevDate: "", prevNext: "", bought: false, vendor: "", photo: ""
   };
   var old = db.items.filter(function(x){ return x.id === data.id; })[0];
   if(old){
     data.prevDate = old.prevDate || ""; data.prevNext = old.prevNext || "";
     data.bought = !!old.bought; data.vendor = old.vendor || "";
+    data.photo = old.photo || "";
   }
   var found = db.items.filter(function(x){ return x.id === data.id; })[0];
   if(found) Object.keys(data).forEach(function(k){ found[k] = data[k]; });
@@ -1451,17 +1528,21 @@ function openInfo(it){
     $("btnInfoEdit").textContent = "구매 완료 처리";
   }else{
     $("infoList").innerHTML = row("상태", '<span class="badge buy">구매완료</span>')
-      + row("구매일자", '<span class="num">'+(it.date || "—")+'</span>')
+      + row("구매일자", '<span class="num">'+fmtD(it.date)+'</span>')
       + row("금액", '<span class="num">'+won(it.price)+'원 × '+(+it.qty||0)+esc(it.unit||"")+' = '+won((+it.price||0)*(+it.qty||0))+'원</span>')
       + row("구매처", esc(it.vendor || "—"))
       + row("링크", it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">구매 페이지 열기</a>' : "—")
       + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
     $("btnInfoEdit").textContent = "재구매 기록";
   }
+  if(it.photo){
+    $("infoList").innerHTML += '<li><span class="k">사진</span><span class="v">'
+      + '<a class="link" href="'+esc(it.photo)+'" target="_blank" rel="noopener">첨부 사진 열기</a></span></li>';
+  }
   var hist = purchasesOf(it.id);
   if(hist.length){
     var rows = hist.slice(0,6).map(function(r){
-      return '<li><span class="k num">'+esc(r.date || String(r.ts).slice(0,10))+'</span>'
+      return '<li><span class="k num">'+fmtD(r.date || String(r.ts).slice(0,10))+'</span>'
         + '<span class="v num">'+won(r.total)+'원'
         + (r.vendor ? ' · '+esc(r.vendor) : '')
         + ' <span class="memo">'+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></span></li>';
@@ -1586,36 +1667,226 @@ $("btnCsv").addEventListener("click", function(){
   setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 500);
 });
 
-/* ───────── 연결 설정 ───────── */
-function openCfg(){
-  $("cfgUrl").value = cfg.url || "";
-  $("cfgKey").value = cfg.key || "";
-  $("cfgSheet").value = cfg.sheet || "";
-  $("cfgModal").classList.add("open");
-  setTimeout(function(){ $("cfgUrl").focus(); }, 30);
+/* ───────── 사진 첨부 ───────── */
+function showPhoto(url){
+  if(url){
+    $("photoImg").src = url;
+    $("photoBox").hidden = false;
+    $("btnPhotoDel").hidden = false;
+    $("photoHint").textContent = "누르면 원본 크기로 열립니다.";
+  }else{
+    $("photoBox").hidden = true;
+    $("btnPhotoDel").hidden = true;
+    $("photoHint").textContent = $("fId").value
+      ? "영수증이나 제품 사진을 올릴 수 있습니다."
+      : "저장 후에 첨부할 수 있습니다.";
+  }
 }
-$("btnConfig").addEventListener("click", openCfg);
-$("btnCfgSave").addEventListener("click", function(){
-  var url = $("cfgUrl").value.trim(), key = $("cfgKey").value.trim();
-  if(!url || !key){ toast("웹앱 주소와 인증 키를 모두 넣어주세요"); return; }
-  if(url.indexOf("/exec") < 0){ toast("주소가 /exec 로 끝나는지 확인해 주세요"); return; }
-  cfg = {url:url, key:key, sheet:$("cfgSheet").value.trim()};
+$("photoImg").addEventListener("click", function(){
+  if(this.src) window.open(this.src, "_blank", "noopener");
+});
+$("btnPhotoPick").addEventListener("click", function(){
+  if(!$("fId").value){ toast("먼저 물품을 저장한 뒤 사진을 올려주세요"); return; }
+  $("fPhotoFile").click();
+});
+$("btnPhotoDel").addEventListener("click", function(){
+  var it = db.items.filter(function(x){ return x.id === $("fId").value; })[0];
+  if(!it || !confirm("첨부한 사진을 지울까요?")) return;
+  it.photo = "";
+  showPhoto("");
+  push("upsert", it, "사진을 지웠습니다");
+});
+
+// 업로드 전에 가로 1200px로 줄여 용량을 낮춥니다
+function shrinkImage(file){
+  return new Promise(function(res, rej){
+    var reader = new FileReader();
+    reader.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        var max = 1200;
+        var w = img.width, h = img.height;
+        if(w > max){ h = Math.round(h * max / w); w = max; }
+        var cv = document.createElement("canvas");
+        cv.width = w; cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        res(cv.toDataURL("image/jpeg", 0.82));
+      };
+      img.onerror = function(){ rej(new Error("이미지를 읽지 못했습니다")); };
+      img.src = reader.result;
+    };
+    reader.onerror = function(){ rej(new Error("파일을 읽지 못했습니다")); };
+    reader.readAsDataURL(file);
+  });
+}
+
+$("fPhotoFile").addEventListener("change", function(e){
+  var f = e.target.files[0];
+  if(!f) return;
+  var id = $("fId").value;
+  e.target.value = "";
+  if(!id) return;
+  toast("사진을 올리는 중입니다…");
+  shrinkImage(f).then(function(dataUrl){
+    return apiPost("uploadPhoto", {id:id, dataUrl:dataUrl, name:$("fName").value.trim()});
+  }).then(function(res){
+    if(!res || !res.ok) throw new Error((res && res.error) || "업로드 실패");
+    adopt(res);
+    var it = db.items.filter(function(x){ return x.id === id; })[0];
+    showPhoto(it ? it.photo : "");
+    renderAll();
+    toast("사진을 첨부했습니다");
+  }).catch(function(err){
+    toast("사진을 올리지 못했습니다 · " + err.message);
+  });
+});
+
+/* ───────── 로그인 ───────── */
+var gateMode = "login";
+
+function openGate(step, msg, kind){
+  $("gate").classList.add("open");
+  $("gateUrl").hidden = (step !== "url");
+  $("gateAuth").hidden = (step !== "auth");
+  $("gateSub").textContent = (step === "url")
+    ? "먼저 서버 주소를 연결해 주세요"
+    : "계속하려면 로그인해 주세요";
+  if(step === "url") $("gUrl").value = cfg.url || "";
+  gateMsg(msg || "", kind || "err");
+}
+function closeGate(){ $("gate").classList.remove("open"); gateMsg(""); }
+function gateMsg(t, kind){
+  var el = $("gateMsg");
+  el.textContent = t || "";
+  el.className = "gatemsg" + (t ? " show " + (kind||"err") : "");
+}
+function setGateMode(m){
+  gateMode = m;
+  document.querySelectorAll("[data-gtab]").forEach(function(b){
+    b.classList.toggle("on", b.dataset.gtab === m);
+  });
+  $("gNameWrap").hidden = (m !== "signup");
+  $("btnGSubmit").textContent = (m === "signup") ? "가입 요청 보내기" : "로그인";
+  $("gPw").setAttribute("autocomplete", m === "signup" ? "new-password" : "current-password");
+  gateMsg("");
+}
+document.querySelectorAll("[data-gtab]").forEach(function(b){
+  b.addEventListener("click", function(){ setGateMode(b.dataset.gtab); });
+});
+
+$("btnGUrl").addEventListener("click", function(){
+  var url = $("gUrl").value.trim();
+  if(url.indexOf("/exec") < 0){ gateMsg("주소가 /exec 로 끝나는지 확인해 주세요"); return; }
+  cfg.url = url;
   LS.set(CFG_KEY, cfg);
-  $("btnSheet").hidden = !cfg.sheet;
-  closeAll();
-  pull().then(showAlarm);
+  openGate("auth");
 });
-$("btnDisconnect").addEventListener("click", function(){
-  if(!confirm("연결을 해제할까요? 시트의 데이터는 그대로 남습니다.")) return;
-  cfg = {url:"", key:"", sheet:""};
-  LS.set(CFG_KEY, cfg);
-  $("btnSheet").hidden = true;
-  closeAll(); mark(); renderAll();
-  toast("연결을 해제했습니다");
+$("btnGReset").addEventListener("click", function(){ openGate("url"); });
+
+$("btnGSubmit").addEventListener("click", function(){
+  var id = $("gId").value.trim(), pw = $("gPw").value;
+  if(!id || !pw){ gateMsg("아이디와 비밀번호를 입력해 주세요"); return; }
+  $("btnGSubmit").disabled = true;
+  gateMsg("처리 중입니다…", "ok");
+
+  if(gateMode === "signup"){
+    apiRaw(cfg.url, "signup", {id:id, pw:pw, name:$("gName").value.trim()})
+      .then(function(res){
+        $("btnGSubmit").disabled = false;
+        if(!res.ok) throw new Error(res.error || "가입에 실패했습니다");
+        if(res.data.first){
+          gateMsg("첫 계정이라 관리자로 등록되었습니다. 이제 로그인해 주세요", "ok");
+        }else{
+          gateMsg("가입 요청을 보냈습니다. 관리자 승인 후 로그인할 수 있습니다", "ok");
+        }
+        setTimeout(function(){ setGateMode("login"); }, 1800);
+      })
+      .catch(function(err){ $("btnGSubmit").disabled = false; gateMsg(err.message); });
+    return;
+  }
+
+  apiRaw(cfg.url, "login", {id:id, pw:pw})
+    .then(function(res){
+      $("btnGSubmit").disabled = false;
+      if(!res.ok) throw new Error(res.error || "로그인에 실패했습니다");
+      cfg.token = res.data.token;
+      LS.set(CFG_KEY, cfg);
+      me = {id:res.data.id, name:res.data.name, role:res.data.role};
+      LS.set("supplies-me", me);
+      $("gPw").value = "";
+      closeGate();
+      applyRole();
+      pull().then(showAlarm);
+    })
+    .catch(function(err){ $("btnGSubmit").disabled = false; gateMsg(err.message); });
 });
-$("btnSheet").addEventListener("click", function(){
-  if(cfg.sheet) window.open(cfg.sheet, "_blank", "noopener");
+$("gPw").addEventListener("keydown", function(e){
+  if(e.key === "Enter") $("btnGSubmit").click();
 });
+
+$("btnLogout").addEventListener("click", function(){
+  if(!confirm("로그아웃할까요?")) return;
+  if(connected()) apiPost("logout", {}).catch(function(){});
+  cfg.token = ""; LS.set(CFG_KEY, cfg);
+  me = null; LS.set("supplies-me", null);
+  db = {items:[], checks:{}, purchases:[], stockLog:[], users:[]};
+  LS.set(CACHE_KEY, db);
+  renderAll();
+  openGate("auth");
+});
+
+/* 권한에 따른 화면 조정 */
+function applyRole(){
+  var master = isMaster();
+  $("whoPill").hidden = !me;
+  if(me) $("whoPill").innerHTML = '<b>'+esc(me.name||me.id)+'</b> · '+(master ? "관리자" : "게스트");
+  $("tabUsers").hidden = !master;
+  document.querySelectorAll("[data-add]").forEach(function(b){ b.hidden = !master; });
+  $("btnAdd").hidden = !master;
+  $("fabAdd").style.display = master ? "" : "none";
+  document.body.classList.toggle("guest", !master);
+}
+
+/* ───────── 계정 관리 ───────── */
+function renderUsers(){
+  if(!isMaster()) return;
+  var list = (db.users||[]).slice().sort(function(a,b){
+    var order = {pending:0, approved:1, blocked:2};
+    return (order[a.status]||9) - (order[b.status]||9) || String(a.id).localeCompare(String(b.id));
+  });
+  var label = {pending:"승인 대기", approved:"사용 중", blocked:"중지됨"};
+  $("userList").innerHTML = list.map(function(u){
+    var btns = "";
+    if(u.role !== "master"){
+      if(u.status === "pending"){
+        btns = '<button class="iconbtn" data-user="'+esc(u.id)+'" data-st="approved">수락</button>'
+             + '<button class="iconbtn" data-user="'+esc(u.id)+'" data-st="blocked">거절</button>';
+      }else if(u.status === "approved"){
+        btns = '<button class="iconbtn" data-user="'+esc(u.id)+'" data-st="blocked">사용 중지</button>'
+             + '<button class="iconbtn" data-user="'+esc(u.id)+'" data-st="delete">삭제</button>';
+      }else{
+        btns = '<button class="iconbtn" data-user="'+esc(u.id)+'" data-st="approved">다시 허용</button>'
+             + '<button class="iconbtn" data-user="'+esc(u.id)+'" data-st="delete">삭제</button>';
+      }
+    }
+    return '<tr class="userrow"><td><span class="name">'+esc(u.name||u.id)+'</span>'
+      + ' <span class="rolechip'+(u.role==="master"?" master":"")+'">'+(u.role==="master"?"관리자":"게스트")+'</span>'
+      + '<span class="memo">'+esc(u.id)+(u.createdAt ? ' · 가입 '+fmtD(u.createdAt) : '')+'</span></td>'
+      + '<td class="right"><span class="stchip '+u.status+'">'+(label[u.status]||u.status)+'</span>'
+      + (btns ? '<div class="rowbtns" style="margin-top:6px">'+btns+'</div>' : '')+'</td></tr>';
+  }).join("") || '<tr><td class="empty">계정이 없습니다.</td></tr>';
+}
+$("userList").addEventListener("click", function(e){
+  var id = e.target.getAttribute("data-user");
+  if(!id) return;
+  var st = e.target.getAttribute("data-st");
+  var msg = {approved:"이 계정의 사용을 허용할까요?", blocked:"이 계정의 사용을 막을까요?",
+             delete:"이 계정을 삭제할까요? 되돌릴 수 없습니다."}[st];
+  if(!confirm(msg)) return;
+  push("setUser", {id:id, status:st}, "계정 상태를 바꿨습니다");
+});
+
+/* ───────── 연결 설정 ───────── */
 $("btnReload").addEventListener("click", function(){ pull(); });
 
 /* ───────── 알람 ───────── */
@@ -1625,7 +1896,7 @@ function showAlarm(){
   $("alarmList").innerHTML = due.slice(0,8).map(function(it){
     var s = statusOf(it);
     return '<li><span class="t"><span class="name">'+esc(it.name)+'</span>'
-      + '<span class="memo">'+esc(it.cat||"")+' · 교체 예정 '+(it.next||"")+'</span></span>'
+      + '<span class="memo">'+esc(it.cat||"")+' · 교체 예정 '+fmtD(it.next)+'</span></span>'
       + '<span class="badge '+s.key+'">'+s.label+'</span></li>';
   }).join("") + (due.length>8 ? '<li><span class="memo">외 '+(due.length-8)+'건</span></li>' : '');
   $("alarm").classList.add("open");
@@ -1647,9 +1918,18 @@ function toast(msg){
 }
 
 /* ───────── 시작 ───────── */
-$("btnSheet").hidden = !cfg.sheet;
-mark(); renderAll();
-if(connected()) pull(true).then(showAlarm);
+applyRole();
+mark();
+renderAll();
+
+if(!cfg.url){
+  openGate("url");
+}else if(!cfg.token){
+  openGate("auth");
+}else{
+  pull(true).then(showAlarm);
+}
+setGateMode("login");
 
 document.addEventListener("visibilitychange", function(){
   if(!document.hidden && connected() && busy === 0) pull(true);
