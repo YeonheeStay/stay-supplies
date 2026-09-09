@@ -309,7 +309,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>숙소 비품 관리</h1>
-      <span class="ver">v13</span>
+      <span class="ver">v14</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <div class="top-actions">
         <button type="button" id="btnReload">새로고침</button>
@@ -429,6 +429,10 @@
     <div class="grid2">
       <div class="panel"><h3>용도별 집계</h3><table><tbody id="statCat"></tbody></table></div>
       <div class="panel"><h3>지금 확인할 것</h3><table><tbody id="statSchedule"></tbody></table></div>
+    </div>
+    <div class="panel" style="margin-top:14px">
+      <h3>구매 이력</h3>
+      <table><tbody id="statHistory"></tbody></table>
     </div>
   </section>
 </div>
@@ -603,6 +607,8 @@ var cfg = LS.get(CFG_KEY, {url:"", key:"", sheet:""});
 var db  = LS.get(CACHE_KEY, {items:[], checks:{}});
 if(!db.items) db.items = [];
 if(!db.checks) db.checks = {};
+if(!db.purchases) db.purchases = [];
+if(!db.stockLog) db.stockLog = [];
 var warnDays = 7, busy = 0;
 
 /* ───────── 날짜·문자 유틸 ───────── */
@@ -674,7 +680,12 @@ function adopt(res){
       x.stock = prev[x.id].stock;
     }
   });
-  db = {items: items, checks: res.data.checks || {}};
+  db = {
+    items: items,
+    checks: res.data.checks || {},
+    purchases: res.data.purchases || [],
+    stockLog: res.data.stockLog || []
+  };
   LS.set(CACHE_KEY, db);
 }
 
@@ -964,6 +975,24 @@ function renderBuy(){
   $("buyText").textContent = done + " / " + all;
 }
 
+function purchasesOf(id){
+  return (db.purchases||[]).filter(function(r){ return String(r.itemId) === String(id); })
+    .sort(function(a,b){ return String(b.ts).localeCompare(String(a.ts)); });
+}
+function spentOn(id){
+  return purchasesOf(id).reduce(function(t,r){ return t + (+r.total||0); }, 0);
+}
+function usedRecently(id, days){
+  var from = addDays(today(), -days).getTime();
+  return (db.stockLog||[]).filter(function(r){
+    return String(r.itemId) === String(id) && (+r.delta||0) < 0
+      && new Date(r.ts).getTime() >= from;
+  }).reduce(function(t,r){ return t + Math.abs(+r.delta||0); }, 0);
+}
+function totalSpent(){
+  return (db.purchases||[]).reduce(function(t,r){ return t + (+r.total||0); }, 0);
+}
+
 function stockOf(it){
   return (it.stock === undefined || it.stock === null || it.stock === "")
     ? (+it.qty||0) : (+it.stock||0);
@@ -1015,7 +1044,9 @@ function renderStock(){
           + replBadge(it) + stockBadge(it)
           + '<span class="qty num">기준 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
         + '</span>'
-        + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))+'</span></span>'
+        + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))
+          + (usedRecently(it.id,30) ? ' · 최근 30일 '+usedRecently(it.id,30)+esc(it.unit||"")+' 소모' : '')
+          + '</span></span>'
         + '<span class="stepper">'
           + '<button type="button" data-dec="'+it.id+'" aria-label="수량 줄이기">−</button>'
           + '<span class="qv'+(isLow(it)?" low":(stockOf(it)===(+it.qty||0)?" full":""))+'">'
@@ -1088,6 +1119,34 @@ function renderStats(){
     }).join("");
   }
   $("statSchedule").innerHTML = rows || '<tr><td class="empty">지금 확인할 항목이 없습니다.</td></tr>';
+
+  var hist = (db.purchases||[]).slice().sort(function(a,b){
+    return String(b.ts).localeCompare(String(a.ts));
+  });
+  var byMonth = {};
+  hist.forEach(function(r){
+    var m = String(r.date || r.ts).slice(0,7);
+    byMonth[m] = (byMonth[m]||0) + (+r.total||0);
+  });
+  var months = Object.keys(byMonth).sort().reverse().slice(0,6);
+  var hrows = "";
+  if(months.length){
+    hrows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">월별 지출</td></tr>';
+    hrows += months.map(function(m){
+      return '<tr><td><span class="name">'+m.replace("-","년 ")+'월</span></td>'
+        + '<td class="right num">'+won(byMonth[m])+'원</td></tr>';
+    }).join("");
+    hrows += '<tr class="total-row"><td>누적 지출</td><td class="right num">'+won(totalSpent())+'원</td></tr>';
+    hrows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">최근 구매</td></tr>';
+    hrows += hist.slice(0,10).map(function(r){
+      return '<tr><td><span class="name">'+esc(r.name)+'</span>'
+        + '<span class="memo">'+esc(r.date || String(r.ts).slice(0,10))
+        + (r.vendor ? ' · '+esc(r.vendor) : '')+'</span></td>'
+        + '<td class="right num">'+won(r.total)+'원<span class="memo">'+(+r.qty||0)+'개</span></td></tr>';
+    }).join("");
+  }
+  $("statHistory").innerHTML = hrows
+    || '<tr><td class="empty">구매 리스트에서 구매를 기록하면 여기에 쌓입니다.</td></tr>';
 }
 
 function setFocus(kind){
@@ -1310,20 +1369,25 @@ $("tbody").addEventListener("click", function(e){
 $("fGroup").addEventListener("change", renderItems);
 
 /* ───────── 재고 수량 조절 ───────── */
-var qtyTimers = {};
+var qtyTimers = {}, qtyFrom = {};
 function changeQty(id, delta){
   var it = db.items.filter(function(x){ return x.id === id; })[0];
   if(!it) return;
-  var next = stockOf(it) + delta;
+  var cur = stockOf(it);
+  var next = cur + delta;
   if(next < 0) return;
+  if(qtyFrom[id] === undefined) qtyFrom[id] = cur;
   it.stock = next;
   renderAll();
   LS.set(CACHE_KEY, db);
   if(!connected()) return;
   clearTimeout(qtyTimers[id]);
   qtyTimers[id] = setTimeout(function(){
-    var cur = db.items.filter(function(x){ return x.id === id; })[0];
-    if(cur) push("upsert", cur);
+    var item = db.items.filter(function(x){ return x.id === id; })[0];
+    if(!item) return;
+    var before = qtyFrom[id];
+    delete qtyFrom[id];
+    push("setStock", {item: item, before: before, after: stockOf(item), reason: "수동 조정"});
   }, 800);
 }
 $("stocklist").addEventListener("click", function(e){
@@ -1368,7 +1432,7 @@ $("btnBuySave").addEventListener("click", function(){
   it.url = $("bUrl").value.trim();
   it.bought = true;
   closeAll();
-  push("upsert", it, it.name + " 구매 완료로 기록했습니다");
+  push("purchase", {item: it}, it.name + " 구매 내역을 기록했습니다");
 });
 
 // 모달을 저장 없이 닫으면 체크 상태를 원래대로 되돌림
@@ -1392,7 +1456,24 @@ function openInfo(it){
       + row("구매처", esc(it.vendor || "—"))
       + row("링크", it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">구매 페이지 열기</a>' : "—")
       + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
-    $("btnInfoEdit").textContent = "정보 수정";
+    $("btnInfoEdit").textContent = "재구매 기록";
+  }
+  var hist = purchasesOf(it.id);
+  if(hist.length){
+    var rows = hist.slice(0,6).map(function(r){
+      return '<li><span class="k num">'+esc(r.date || String(r.ts).slice(0,10))+'</span>'
+        + '<span class="v num">'+won(r.total)+'원'
+        + (r.vendor ? ' · '+esc(r.vendor) : '')
+        + ' <span class="memo">'+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></span></li>';
+    }).join("");
+    $("infoList").innerHTML += '<li style="border-top:1px solid var(--line);padding-top:12px">'
+      + '<span class="k">구매 이력</span><span class="v">'+hist.length+'회 · 누적 '+won(spentOn(it.id))+'원</span></li>'
+      + rows;
+  }
+  var used = usedRecently(it.id, 30);
+  if(used){
+    $("infoList").innerHTML += '<li><span class="k">최근 30일</span>'
+      + '<span class="v num">'+used+esc(it.unit||"")+' 소모</span></li>';
   }
   $("infoModal").classList.add("open");
 }
