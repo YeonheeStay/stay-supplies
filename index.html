@@ -255,6 +255,17 @@
   .stchip.approved{background:var(--ok-bg);color:var(--ok)}
   .stchip.blocked{background:var(--late-bg);color:var(--late)}
 
+  .picklist{list-style:none;margin:0;padding:0;max-height:46vh;overflow-y:auto;
+            border:1px solid var(--line);border-radius:9px}
+  .picklist li{display:flex;align-items:center;gap:10px;padding:11px 12px;
+               border-bottom:1px solid var(--line-2);cursor:pointer}
+  .picklist li:last-child{border-bottom:0}
+  .picklist li:hover{background:#FAFBF9}
+  .picklist .t{flex:1;min-width:0}
+  .picklist .add{font-size:12.5px;font-weight:700;color:var(--ok);white-space:nowrap}
+  .picklist .none{padding:24px 12px;text-align:center;color:var(--ink-3);font-size:13.5px;cursor:default}
+  .picklist .none:hover{background:none}
+
   .mobile-only{display:none}
   @media (max-width:760px), (orientation:landscape) and (max-height:540px){
     .summary{grid-template-columns:1fr 1fr}
@@ -374,7 +385,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v20</span>
+      <span class="ver">v21</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -439,7 +450,7 @@
       <span class="qty num" id="progText"></span>
       <button class="btn ghost sm" id="btnAllCheck">전체 체크</button>
       <button class="btn ghost sm" id="btnResetCheck">오늘 체크 지우기</button>
-      <button class="btn sm" data-add>물품 추가</button>
+      <button class="btn sm" id="btnDailyAdd">물품 추가</button>
     </div>
     <div class="panel">
       <ul class="checklist" id="checklist"></ul>
@@ -636,6 +647,23 @@
     <footer>
       <button class="btn ghost" data-close>닫기</button>
       <button class="btn" id="btnInfoEdit">정보 수정</button>
+    </footer>
+  </div>
+</div>
+
+<div class="scrim" id="pickModal">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+    <header><h2 id="pickTitle">일일 점검에 넣을 물품</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
+    <div class="body">
+      <div class="field">
+        <label for="pickQ">물품 이름</label>
+        <input id="pickQ" placeholder="눌러서 목록을 보거나 이름을 입력하세요" autocomplete="off">
+      </div>
+      <ul class="picklist" id="pickList"></ul>
+    </div>
+    <footer>
+      <button class="btn ghost" data-close>닫기</button>
+      <button class="btn" id="btnPickNew">새 물품 만들기</button>
     </footer>
   </div>
 </div>
@@ -1034,6 +1062,7 @@ function renderDaily(){
       + '<span class="memo">'+esc(it.cat||"")+(it.memo?" · "+esc(it.memo):"")+'</span></span>'
       + '<span class="qty num">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
       + alertBadges(it)
+      + (isMaster() ? '<button class="iconbtn" data-daildel="'+it.id+'">삭제</button>' : '')
       + '</li>';
   }).join("");
   $("emptyDaily").hidden = list.length > 0;
@@ -1378,7 +1407,7 @@ document.querySelectorAll("nav.tabs button").forEach(function(b){
 });
 
 /* ───────── 모달 ───────── */
-function closeAll(){ ["modal","moveModal","buyModal","infoModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
+function closeAll(){ ["modal","moveModal","buyModal","infoModal","pickModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
 // 눌러서 뗀 지점이 모두 바깥 배경일 때만 닫습니다.
 // (숫자 입력칸의 화살표를 누르는 도중 닫히던 문제 방지)
 var downOnScrim = false;
@@ -1531,6 +1560,55 @@ $("tbody").addEventListener("click", function(e){
 
 ["q","fCat","fStatus"].forEach(function(id){ $(id).addEventListener("input", renderItems); });
 $("fGroup").addEventListener("change", renderItems);
+
+/* ───────── 일일 점검 물품 고르기 ───────── */
+function openPick(){
+  $("pickQ").value = "";
+  renderPick();
+  $("pickModal").classList.add("open");
+  setTimeout(function(){ $("pickQ").focus(); }, 40);
+}
+function renderPick(){
+  var q = $("pickQ").value.trim().toLowerCase();
+  var list = db.items.filter(function(it){
+    if(it.daily) return false;
+    if(!q) return true;
+    return (it.name + " " + (it.cat||"")).toLowerCase().indexOf(q) >= 0;
+  }).sort(function(a,b){
+    return (a.cat||"").localeCompare(b.cat||"","ko") || a.name.localeCompare(b.name,"ko");
+  });
+
+  if(!list.length){
+    $("pickList").innerHTML = '<li class="none">'
+      + (q ? "찾는 물품이 없습니다. 아래에서 새로 만들 수 있습니다."
+           : "모든 물품이 이미 일일 점검에 들어 있습니다.") + '</li>';
+    return;
+  }
+  $("pickList").innerHTML = list.slice(0,60).map(function(it){
+    return '<li data-pick="'+it.id+'">'
+      + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
+      + '<span class="memo">'+esc(it.cat||"미분류")+' · 재고 '+stockOf(it)+'/'+(+it.qty||0)+esc(it.unit||"")
+      + (it.next ? ' · 다음 교체 '+fmtD(it.next) : '')+'</span></span>'
+      + '<span class="add">+ 추가</span></li>';
+  }).join("");
+}
+$("pickQ").addEventListener("input", renderPick);
+$("pickQ").addEventListener("focus", renderPick);
+$("btnDailyAdd").addEventListener("click", openPick);
+$("pickList").addEventListener("click", function(e){
+  var li = e.target.closest ? e.target.closest("[data-pick]") : null;
+  if(!li) return;
+  var it = db.items.filter(function(x){ return x.id === li.getAttribute("data-pick"); })[0];
+  if(!it) return;
+  it.daily = true;
+  renderPick();
+  push("upsert", it, it.name + " 을(를) 일일 점검에 넣었습니다");
+});
+$("btnPickNew").addEventListener("click", function(){
+  closeAll();
+  openModal(null);
+  $("fDaily").checked = true;
+});
 
 /* ───────── 교체 관리 ───────── */
 $("replFilter").addEventListener("change", renderReplace);
@@ -1739,6 +1817,17 @@ $("moveNew").addEventListener("keydown", function(e){
 });
 
 /* ───────── 일일 점검 ───────── */
+$("checklist").addEventListener("click", function(e){
+  var id = e.target.getAttribute("data-daildel");
+  if(!id) return;
+  var it = db.items.filter(function(x){ return x.id === id; })[0];
+  if(!it) return;
+  if(!confirm("‘"+it.name+"’을(를) 일일 점검에서 빼시겠어요?\n\n물품 리스트에는 그대로 남고, 수정 화면의 ‘일일 점검 대상’ 체크만 해제됩니다.")) return;
+  it.daily = false;
+  var key = ymd(today());
+  db.checks[key] = (db.checks[key]||[]).filter(function(x){ return x !== id; });
+  push("upsert", it, it.name + " 을(를) 일일 점검에서 뺐습니다");
+});
 $("checklist").addEventListener("change", function(e){
   var id = e.target.getAttribute("data-check");
   if(!id) return;
@@ -1958,6 +2047,7 @@ function applyRole(){
   document.querySelectorAll("[data-add]").forEach(function(b){ b.hidden = !master; });
   $("btnAdd").hidden = !master;
   $("fabAdd").style.display = master ? "" : "none";
+  $("btnDailyAdd").hidden = !master;
   document.body.classList.toggle("guest", !master);
 }
 
