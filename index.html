@@ -169,6 +169,11 @@
   .bar{height:6px;background:var(--line-2);border-radius:99px;overflow:hidden;margin-top:5px}
   .bar i{display:block;height:100%;background:var(--ink);opacity:.75}
   .total-row td{font-weight:700;background:#FAFBF9;border-top:1px solid var(--line)}
+  tr.jump{cursor:pointer}
+  tr.jump:hover td{background:#FAFBF9}
+  @keyframes softdim{0%,100%{opacity:1}50%{opacity:.18}}
+  .checklist li.flash .t,.checklist li.flash .stepper{animation:softdim 2s ease-in-out 3}
+  .checklist li.flash{box-shadow:inset 3px 0 0 var(--ink)}
   tr.foldhead{cursor:pointer}
   tr.foldhead:hover td{background:#FAFBF9}
   .tri{display:inline-block;width:15px;color:var(--ink-3);font-size:10px;vertical-align:middle}
@@ -397,7 +402,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v25</span>
+      <span class="ver">v26</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -1210,7 +1215,9 @@ function renderStock(){
     html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
       + '<span class="memo">'+arr.length+'종'+(lowN ? ' · 재고 부족 '+lowN+'건' : '')+'</span></span></li>';
     arr.forEach(function(it){
-      html += '<li class="'+(isLow(it)?"lowline":(stockOf(it)===(+it.qty||0)?"fullline":""))+'">'
+      html += '<li id="stk-'+it.id+'" class="'
+        + (isLow(it)?"lowline":(stockOf(it)===(+it.qty||0)?"fullline":""))
+        + (jumpId === it.id ? " flash" : "") + '">'
         + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
           + replBadge(it) + stockBadge(it)
           + '<span class="qty num">기준 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
@@ -1292,7 +1299,7 @@ function renderStats(){
   if(lows.length){
     rows += '<tr class="subhead"><td colspan="2">재고 부족</td></tr>';
     rows += lows.map(function(it){
-      return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
+      return '<tr class="jump" data-goto="'+it.id+'"><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right"><span class="badge low">재고 부족</span>'
         + '<span class="memo num">재고 '+stockOf(it)+esc(it.unit||"")+' / 기준 '+(+it.qty||0)+esc(it.unit||"")+'</span></td></tr>';
     }).join("");
@@ -1301,14 +1308,14 @@ function renderStats(){
     rows += '<tr class="subhead"><td colspan="2">지금 처리할 항목</td></tr>';
     rows += due.map(function(it){
       var st = statusOf(it);
-      return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
+      return '<tr class="jump" data-goto="'+it.id+'"><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right"><span class="badge '+st.key+'">'+st.label+'</span><span class="memo num">'+fmtD(it.next)+'</span></td></tr>';
     }).join("");
   }
   if(upcoming.length){
     rows += '<tr class="subhead"><td colspan="2">다가오는 교체</td></tr>';
     rows += upcoming.map(function(it){
-      return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
+      return '<tr class="jump" data-goto="'+it.id+'"><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right num">'+fmtD(it.next)+'<span class="memo">'+statusOf(it).label+'</span></td></tr>';
     }).join("");
   }
@@ -1399,6 +1406,25 @@ function setFocus(kind){
   }
   renderAll();
 }
+var jumpId = "";
+function jumpToStock(id){
+  jumpId = id;
+  if($("stockFilter").value) $("stockFilter").value = "";
+  goTab("stock");
+  renderStock();
+  setTimeout(function(){
+    var el = document.getElementById("stk-" + id);
+    if(el) el.scrollIntoView({behavior:"smooth", block:"center"});
+  }, 60);
+  clearTimeout(jumpToStock._t);
+  jumpToStock._t = setTimeout(function(){ jumpId = ""; renderStock(); }, 6500);
+}
+$("statSchedule").addEventListener("click", function(e){
+  var tr = e.target.closest ? e.target.closest("[data-goto]") : null;
+  if(!tr) return;
+  jumpToStock(tr.getAttribute("data-goto"));
+});
+
 $("statCat").addEventListener("click", toggleFold);
 $("statHistory").addEventListener("click", toggleFold);
 $("summary").addEventListener("click", function(e){
