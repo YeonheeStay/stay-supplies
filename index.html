@@ -119,6 +119,10 @@
   .badge.buy{color:#1D62C4;background:#E4EDFA}
   .badge.nobuy{color:var(--ink-3);background:var(--line-2)}
   .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .namecell{display:grid;grid-template-columns:170px minmax(0,1fr);gap:10px;align-items:center}
+  .namecell .nm{font-weight:600;word-break:keep-all;line-height:1.35}
+  .namecell .bdgs{display:flex;gap:6px;align-items:center;flex-wrap:nowrap}
+  .namecell .badge{flex:none}
   @keyframes dim{0%,100%{opacity:1}50%{opacity:.3}}
   .badge.low{color:#fff;background:var(--late);animation:dim 1.3s ease-in-out infinite}
   .badge.full{color:#fff;background:var(--ok)}
@@ -465,7 +469,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v36</span>
+      <span class="ver">v37</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -817,7 +821,7 @@
 var SERVER_URL = "";
 
 /* 휴대폰이 예전 화면을 붙들고 있지 않도록, 새 버전이 올라오면 한 번 자동 새로고침합니다 */
-var APP_VER = "v36";
+var APP_VER = "v37";
 setTimeout(function(){
   try{
     if(sessionStorage.getItem("ver-reloaded") === APP_VER) return;
@@ -1091,8 +1095,9 @@ function rowHtml(it){
   var link = it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">바로가기</a>' : '—';
   var total = won((+it.price||0)*(+it.qty||0));
   return '<tr class="'+cls+'">'
-    + '<td><div class="desktop-only"><div class="buyname"><span class="name">'+esc(it.name)+'</span>'
-        + buyBadge(it) + stockBadge(it) + '</div>'
+    + '<td><div class="desktop-only"><div class="namecell">'
+        + '<span class="nm">'+esc(it.name)+'</span>'
+        + '<span class="bdgs">'+buyBadge(it)+stockBadge(it)+'</span></div>'
         + (it.memo ? '<span class="memo">'+esc(it.memo)+'</span>' : '') + '</div>'
       + '<div class="mcard mobile-only">'
         + mrow("물품", '<span class="name">'+esc(it.name)+'</span>')
