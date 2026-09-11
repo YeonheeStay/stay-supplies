@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
 <title>연희스테이 비품 관리</title>
 <meta name="description" content="연희스테이 비품 재고·교체주기·구매내역 관리">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -314,6 +315,9 @@
     .calcell{min-height:50px;padding:4px 3px}
     .cnt{font-size:10px;padding:1px 2px}
     .caltitle{min-width:82px;font-size:14px}
+    .calnav{width:36px;height:36px}
+    .calday li{padding:11px 0}
+    .lockpop{max-width:200px;font-size:13.5px}
   }
   .lockpop{position:fixed;left:0;top:0;z-index:95;background:#1D62C4;color:#fff;
            padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.45;
@@ -461,7 +465,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v34</span>
+      <span class="ver">v36</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -812,6 +816,23 @@
  * ──────────────────────────────────────────────── */
 var SERVER_URL = "";
 
+/* 휴대폰이 예전 화면을 붙들고 있지 않도록, 새 버전이 올라오면 한 번 자동 새로고침합니다 */
+var APP_VER = "v36";
+setTimeout(function(){
+  try{
+    if(sessionStorage.getItem("ver-reloaded") === APP_VER) return;
+    var u = location.href.split("#")[0];
+    u += (u.indexOf("?") >= 0 ? "&" : "?") + "_=" + Date.now();
+    fetch(u, {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(t){
+      var m = t.match(/class="ver">([^<]+)</);
+      if(m && m[1] !== APP_VER){
+        sessionStorage.setItem("ver-reloaded", APP_VER);
+        location.reload();
+      }
+    }).catch(function(){});
+  }catch(e){}
+}, 1200);
+
 var $ = function(id){ return document.getElementById(id); };
 
 /* ───────── 로컬 보관 (설정 + 마지막으로 읽은 시트 데이터) ───────── */
@@ -1081,7 +1102,7 @@ function rowHtml(it){
         + mrow("가격", '<span class="num">'+won(it.price)+'원 · 총 '+total+'원</span>')
         + mrow("구매일", '<span class="num">'+fmtD(it.date)+'</span>')
         + mrow("교체일", '<span class="num">'+fmtD(it.replaced)+'</span>')
-        + mrow("다음 교체", '<span class="num">'+nextCell(it)+'</span>')
+        + mrow("다음 교체일", '<span class="num">'+nextCell(it)+'</span>')
         + mrow("상태", '<span class="badge '+s.key+'">'+s.label+'</span>')
         + (it.memo ? mrow("메모", esc(it.memo)) : "")
       + '</div></td>'
@@ -1312,8 +1333,9 @@ function renderCalendar(){
     if(arr.length){
       var diff = dday(key);
       var tone = (diff <= 0) ? "late" : (diff <= 10 ? "warn" : "ok");
+      var showName = (arr.length === 1 && !isMobileView());
       chip = '<span class="cnt '+tone+'">'
-        + (arr.length === 1 ? esc(arr[0].name) : arr.length + "건") + '</span>';
+        + (showName ? esc(arr[0].name) : arr.length + "건") + '</span>';
     }
     html += '<div class="'+cls+'"'+(arr.length ? ' data-day="'+key+'"' : '')+'>'
       + '<span class="dnum">'+d+'</span>'+chip+'</div>';
@@ -1361,7 +1383,8 @@ $("calDay").addEventListener("click", function(e){
 });
 
 function renderStock(){
-  renderCalendar();
+  try{ renderCalendar(); }
+  catch(err){ console.error("달력 표시 실패", err); }
   var mode = $("stockFilter").value;
   var list = db.items.filter(function(it){
     if(mode === "low") return isLow(it);
@@ -2462,7 +2485,13 @@ document.addEventListener("pointerdown", function(e){
 }, true);
 
 function isMobileView(){
-  return window.matchMedia("(max-width:760px), (orientation:landscape) and (max-height:540px)").matches;
+  // 일부 앱 내장 브라우저에는 matchMedia 가 없어 화면 폭으로 되돌아갑니다
+  try{
+    if(window.matchMedia){
+      return window.matchMedia("(max-width:760px), (orientation:landscape) and (max-height:540px)").matches;
+    }
+  }catch(e){}
+  return (window.innerWidth || 1024) <= 760;
 }
 function lockedNotice(){
   var el = $("lockPop");
