@@ -126,7 +126,8 @@
   .stepper .qv.low{color:var(--late);animation:dim 1.3s ease-in-out infinite}
   li.lowline{background:#FDF4F3}
   .repl{display:block;font-size:12.5px;color:var(--ink-3);margin-top:3px}
-  .repl.soon{color:var(--ok);font-weight:600}
+  .dlabel{font-weight:600}
+  .dlabel.hot{color:var(--late)}
   .plan.warn{color:var(--warn);font-weight:600}
   .plan.late{color:var(--late);font-weight:600}
   .stepper{display:inline-flex;align-items:center;border:1px solid var(--line);
@@ -168,6 +169,12 @@
   .bar{height:6px;background:var(--line-2);border-radius:99px;overflow:hidden;margin-top:5px}
   .bar i{display:block;height:100%;background:var(--ink);opacity:.75}
   .total-row td{font-weight:700;background:#FAFBF9;border-top:1px solid var(--line)}
+  tr.foldhead{cursor:pointer}
+  tr.foldhead:hover td{background:#FAFBF9}
+  .tri{display:inline-block;width:15px;color:var(--ink-3);font-size:10px;vertical-align:middle}
+  tr.foldrow td{background:#FCFDFB;font-size:13px;padding-top:8px;padding-bottom:8px}
+  tr.foldrow td:first-child{padding-left:26px}
+  .subhead td{background:#FAFBF9;font-size:12.5px;color:var(--ink-3)}
 
   .scrim{position:fixed;inset:0;background:rgba(22,34,46,.45);display:none;z-index:50;padding:16px;overflow-y:auto}
   .scrim.open{display:flex;align-items:flex-start;justify-content:center}
@@ -385,7 +392,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v23</span>
+      <span class="ver">v24</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -404,7 +411,6 @@
     <button role="tab" aria-selected="false" data-tab="daily">일일 점검<span class="tc" id="tc-daily"></span></button>
     <button role="tab" aria-selected="false" data-tab="buy">구매 리스트<span class="tc" id="tc-buy"></span></button>
     <button role="tab" aria-selected="false" data-tab="stock">재고 관리<span class="tc" id="tc-stock"></span></button>
-    <button role="tab" aria-selected="false" data-tab="replace">교체 관리<span class="tc" id="tc-replace"></span></button>
     <button role="tab" aria-selected="false" data-tab="stats">총계<span class="tc" id="tc-stats"></span></button>
     <button role="tab" aria-selected="false" data-tab="users" id="tabUsers" hidden>계정 관리<span class="tc" id="tc-users"></span></button>
   </nav>
@@ -497,26 +503,6 @@
     <div class="panel">
       <ul class="checklist" id="stocklist"></ul>
       <div class="empty" id="emptyStock" hidden>
-        <strong>해당하는 품목이 없습니다</strong>
-        위 선택을 바꿔보세요.
-      </div>
-    </div>
-  </section>
-
-  <section id="tab-replace" hidden>
-    <div class="check-head">
-      <span class="date">교체 현황</span>
-      <div class="progress"><i id="replBar" style="width:0%"></i></div>
-      <span class="qty num" id="replText"></span>
-      <select id="replFilter">
-        <option value="">전체 보기</option>
-        <option value="due">교체 필요만</option>
-        <option value="today">오늘 교체한 것만</option>
-      </select>
-    </div>
-    <div class="panel">
-      <ul class="checklist" id="repllist"></ul>
-      <div class="empty" id="emptyRepl" hidden>
         <strong>해당하는 품목이 없습니다</strong>
         위 선택을 바꿔보세요.
       </div>
@@ -1178,8 +1164,11 @@ function replText(it){
   var parts = [];
   if(it.cycle) parts.push(it.cycle + "일 주기");
   if(it.next){
-    var s = statusOf(it);
-    parts.push("교체 " + fmtD(it.next) + " (" + s.label + ")");
+    var st = statusOf(it);
+    var d = dday(it.next);
+    var hot = (d !== null && d <= 10);
+    parts.push("교체 " + fmtD(it.next)
+      + ' <span class="dlabel'+(hot ? " hot" : "")+'">(' + st.label + ')</span>');
   }
   return parts.length ? parts.join(" · ") : "교체 주기 없음";
 }
@@ -1218,7 +1207,7 @@ function renderStock(){
           + replBadge(it) + stockBadge(it)
           + '<span class="qty num">기준 '+(+it.qty||0)+esc(it.unit||"")+'</span>'
         + '</span>'
-        + '<span class="repl'+(replSoon(it) ? " soon" : "")+'">'+esc(replText(it))
+        + '<span class="repl">'+replText(it)
           + (usedRecently(it.id,30) ? ' · 최근 30일 '+usedRecently(it.id,30)+esc(it.unit||"")+' 소모' : '')
           + '</span></span>'
         + '<span class="stepper">'
@@ -1238,73 +1227,51 @@ function renderStock(){
   $("stockText").textContent = low ? ("부족 " + low + "건") : "부족 없음";
 }
 
-function renderReplace(){
-  var mode = $("replFilter").value;
-  var list = db.items.filter(function(it){
-    if(!it.cycle && !it.next) return false;
-    if(mode === "due") return replSoon(it);
-    if(mode === "today") return renewedToday(it);
-    return true;
-  }).sort(function(a,b){
-    var da = statusOf(a).d, dbb = statusOf(b).d;
-    return da - dbb || (a.cat||"").localeCompare(b.cat||"","ko");
-  });
-
-  var groups = {};
-  list.forEach(function(it){
-    var c = it.cat || "미분류";
-    if(!groups[c]) groups[c] = [];
-    groups[c].push(it);
-  });
-
-  var html = "";
-  Object.keys(groups).sort(function(a,b){ return a.localeCompare(b,"ko"); }).forEach(function(c){
-    var arr = groups[c];
-    var dueN = arr.filter(replSoon).length;
-    html += '<li class="grpline"><span class="t"><span class="name">'+esc(c)+'</span>'
-      + '<span class="memo">'+arr.length+'종'+(dueN ? ' · 교체 필요 '+dueN+'건' : '')+'</span></span></li>';
-    arr.forEach(function(it){
-      var on = renewedToday(it);
-      html += '<li class="'+(on?"done":"")+'">'
-        + '<input type="checkbox" data-repl="'+it.id+'"'+(on?" checked":"")+' aria-label="'+esc(it.name)+' 교체 완료">'
-        + '<span class="t"><span class="buyname"><span class="name">'+esc(it.name)+'</span>'
-          + replBadge(it) + '</span>'
-        + '<span class="repl">'+(it.cycle ? it.cycle+'일 주기 · ' : '')
-          + '교체 '+fmtD(it.replaced)+' → 다음 '+fmtD(it.next)+'</span></span>'
-        + '</li>';
-    });
-  });
-  $("repllist").innerHTML = html;
-  $("emptyRepl").hidden = list.length > 0;
-
-  var all = list.length;
-  var due = db.items.filter(replSoon).length;
-  $("replBar").style.width = (all ? Math.round((all-due)/all*100) : 0) + "%";
-  $("replText").textContent = due ? ("교체 필요 " + due + "건") : "모두 여유";
+var folds = {};
+function toggleFold(e){
+  var tr = e.target.closest ? e.target.closest("[data-fold]") : null;
+  if(!tr) return;
+  var k = tr.getAttribute("data-fold");
+  folds[k] = !folds[k];
+  renderStats();
 }
 
 function renderStats(){
-  var byCat = {};
+  var byCat = {}, itemsByCat = {};
   db.items.forEach(function(it){
     var c = it.cat || "미분류";
-    if(!byCat[c]) byCat[c] = {n:0, qty:0, sum:0, low:0, due:0, bought:0};
+    if(!byCat[c]){ byCat[c] = {n:0, qty:0, sum:0, low:0, due:0, bought:0}; itemsByCat[c] = []; }
     byCat[c].n++; byCat[c].qty += stockOf(it);
     byCat[c].sum += (+it.price||0)*(+it.qty||0);
     if(isLow(it)) byCat[c].low++;
     if(replSoon(it)) byCat[c].due++;
     if(it.bought) byCat[c].bought++;
+    itemsByCat[c].push(it);
   });
   var total = totalValue();
   var keys = Object.keys(byCat).sort(function(a,b){ return byCat[b].sum - byCat[a].sum; });
+
   $("statCat").innerHTML = keys.map(function(k){
     var v = byCat[k], pct = total ? Math.round(v.sum/total*100) : 0;
+    var key = "cat:" + k, open = !!folds[key];
     var flags = "";
     if(v.due) flags += ' <span class="badge warn">교체 '+v.due+'</span>';
     if(v.low) flags += ' <span class="badge low">부족 '+v.low+'</span>';
-    return '<tr><td><span class="name">'+esc(k)+'</span>'+flags
-      + '<span class="memo">'+v.n+'종 · 재고 '+v.qty+'점 · 구매 '+v.bought+'/'+v.n+'</span>'
-      + '<div class="bar"><i style="width:'+pct+'%"></i></div></td>'
+    var head = '<tr class="foldhead" data-fold="'+esc(key)+'">'
+      + '<td><span class="tri">'+(open ? "&#9650;" : "&#9660;")+'</span>'
+      + '<span class="name">'+esc(k)+'</span>'+flags
+      + '<span class="memo" style="margin-left:15px">'+v.n+'종 · 재고 '+v.qty+'점 · 구매 '+v.bought+'/'+v.n+'</span>'
+      + '<div class="bar" style="margin-left:15px"><i style="width:'+pct+'%"></i></div></td>'
       + '<td class="right num" style="white-space:nowrap">'+won(v.sum)+'원<span class="memo">'+pct+'%</span></td></tr>';
+    if(!open) return head;
+    return head + itemsByCat[k].slice().sort(function(a,b){
+      return a.name.localeCompare(b.name,"ko");
+    }).map(function(it){
+      return '<tr class="foldrow"><td><span class="name">'+esc(it.name)+'</span>'
+        + '<span class="memo">재고 '+stockOf(it)+'/'+(+it.qty||0)+esc(it.unit||"")
+        + (it.next ? ' · 다음 교체 '+fmtD(it.next) : '')+'</span></td>'
+        + '<td class="right num">'+won((+it.price||0)*(+it.qty||0))+'원</td></tr>';
+    }).join("");
   }).join("") + '<tr class="total-row"><td>합계</td><td class="right num">'+won(total)+'원</td></tr>';
 
   var due = dueItems();
@@ -1315,7 +1282,7 @@ function renderStats(){
   });
   var rows = "";
   if(lows.length){
-    rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">재고 부족</td></tr>';
+    rows += '<tr class="subhead"><td colspan="2">재고 부족</td></tr>';
     rows += lows.map(function(it){
       return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right"><span class="badge low">재고 부족</span>'
@@ -1323,15 +1290,15 @@ function renderStats(){
     }).join("");
   }
   if(due.length){
-    rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">지금 처리할 항목</td></tr>';
+    rows += '<tr class="subhead"><td colspan="2">지금 처리할 항목</td></tr>';
     rows += due.map(function(it){
-      var s = statusOf(it);
+      var st = statusOf(it);
       return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
-        + '<td class="right"><span class="badge '+s.key+'">'+s.label+'</span><span class="memo num">'+(it.next||"")+'</span></td></tr>';
+        + '<td class="right"><span class="badge '+st.key+'">'+st.label+'</span><span class="memo num">'+fmtD(it.next)+'</span></td></tr>';
     }).join("");
   }
   if(upcoming.length){
-    rows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">다가오는 교체</td></tr>';
+    rows += '<tr class="subhead"><td colspan="2">다가오는 교체</td></tr>';
     rows += upcoming.map(function(it){
       return '<tr><td><span class="name">'+esc(it.name)+'</span><span class="memo">'+esc(it.cat||"")+'</span></td>'
         + '<td class="right num">'+fmtD(it.next)+'<span class="memo">'+statusOf(it).label+'</span></td></tr>';
@@ -1339,34 +1306,75 @@ function renderStats(){
   }
   $("statSchedule").innerHTML = rows || '<tr><td class="empty">지금 확인할 항목이 없습니다.</td></tr>';
 
+  renderHistory();
+}
+
+function histLine(r){
+  return '<tr class="foldrow"><td><span class="name">'+esc(r.name)+'</span>'
+    + '<span class="memo">'+fmtD(r.date || String(r.ts).slice(0,10))
+    + (r.vendor || r.url ? ' · '+vendorLink(r.vendor, r.url) : '')
+    + ' · '+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></td>'
+    + '<td class="right num">'+won(r.total)+'원</td></tr>';
+}
+
+function renderHistory(){
   var hist = (db.purchases||[]).slice().sort(function(a,b){
     return String(b.ts).localeCompare(String(a.ts));
   });
-  var byMonth = {};
+  if(!hist.length){
+    $("statHistory").innerHTML = '<tr><td class="empty">구매 리스트에서 구매를 기록하면 여기에 쌓입니다.</td></tr>';
+    return;
+  }
+
+  var byMonth = {}, monthRows = {};
   hist.forEach(function(r){
     var m = String(r.date || r.ts).slice(0,7);
     byMonth[m] = (byMonth[m]||0) + (+r.total||0);
+    if(!monthRows[m]) monthRows[m] = [];
+    monthRows[m].push(r);
   });
-  var months = Object.keys(byMonth).sort().reverse().slice(0,6);
-  var hrows = "";
-  if(months.length){
-    hrows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">월별 지출</td></tr>';
-    hrows += months.map(function(m){
-      return '<tr><td><span class="name">'+m.replace("-","년 ")+'월</span></td>'
-        + '<td class="right num">'+won(byMonth[m])+'원</td></tr>';
-    }).join("");
-    hrows += '<tr class="total-row"><td>누적 지출</td><td class="right num">'+won(totalSpent())+'원</td></tr>';
-    hrows += '<tr><td colspan="2" style="background:#FAFBF9;font-size:12.5px;color:var(--ink-3)">최근 구매</td></tr>';
-    hrows += hist.slice(0,10).map(function(r){
-      return '<tr><td><span class="name">'+esc(r.name)+'</span>'
-        + '<span class="memo">'+fmtD(r.date || String(r.ts).slice(0,10))
-        + (r.vendor ? ' · '+vendorLink(r.vendor, r.url) : (r.url ? ' · '+vendorLink("", r.url) : ''))+'</span></td>'
-        + '<td class="right num">'+won(r.total)+'원<span class="memo">'+(+r.qty||0)+'개</span></td></tr>';
-    }).join("");
-  }
-  $("statHistory").innerHTML = hrows
-    || '<tr><td class="empty">구매 리스트에서 구매를 기록하면 여기에 쌓입니다.</td></tr>';
+  var months = Object.keys(byMonth).sort().reverse().slice(0,12);
+
+  var hrows = '<tr class="subhead"><td colspan="2">월별 지출</td></tr>';
+  hrows += months.map(function(m){
+    var key = "m:" + m, open = !!folds[key];
+    var head = '<tr class="foldhead" data-fold="'+esc(key)+'">'
+      + '<td><span class="tri">'+(open ? "&#9650;" : "&#9660;")+'</span>'
+      + '<span class="name">'+m.replace("-","년 ")+'월</span>'
+      + '<span class="memo" style="margin-left:15px">'+monthRows[m].length+'건</span></td>'
+      + '<td class="right num">'+won(byMonth[m])+'원</td></tr>';
+    return open ? head + monthRows[m].map(histLine).join("") : head;
+  }).join("");
+  hrows += '<tr class="total-row"><td>누적 지출</td><td class="right num">'+won(totalSpent())+'원</td></tr>';
+
+  var byCat = {};
+  hist.forEach(function(r){
+    var item = db.items.filter(function(x){ return String(x.id) === String(r.itemId); })[0];
+    var c = r.cat || (item && item.cat) || "미분류";
+    if(!byCat[c]) byCat[c] = [];
+    byCat[c].push(r);
+  });
+  var cats = Object.keys(byCat).sort(function(a,b){
+    var sa = byCat[a].reduce(function(t,r){ return t+(+r.total||0); }, 0);
+    var sb = byCat[b].reduce(function(t,r){ return t+(+r.total||0); }, 0);
+    return sb - sa;
+  });
+
+  hrows += '<tr class="subhead"><td colspan="2">용도별 구매 내역</td></tr>';
+  hrows += cats.map(function(c){
+    var key = "hc:" + c, open = !!folds[key];
+    var sum = byCat[c].reduce(function(t,r){ return t+(+r.total||0); }, 0);
+    var head = '<tr class="foldhead" data-fold="'+esc(key)+'">'
+      + '<td><span class="tri">'+(open ? "&#9650;" : "&#9660;")+'</span>'
+      + '<span class="name">'+esc(c)+'</span>'
+      + '<span class="memo" style="margin-left:15px">'+byCat[c].length+'건</span></td>'
+      + '<td class="right num">'+won(sum)+'원</td></tr>';
+    return open ? head + byCat[c].map(histLine).join("") : head;
+  }).join("");
+
+  $("statHistory").innerHTML = hrows;
 }
+
 
 function setFocus(kind){
   focus = kind || "";
@@ -1383,6 +1391,8 @@ function setFocus(kind){
   }
   renderAll();
 }
+$("statCat").addEventListener("click", toggleFold);
+$("statHistory").addEventListener("click", toggleFold);
 $("summary").addEventListener("click", function(e){
   var el = e.target.closest ? e.target.closest("[data-focus]") : null;
   if(!el) return;
@@ -1416,7 +1426,6 @@ function renderTabCounts(){
   set("daily", left, false);
   set("buy", todo, false);
   set("stock", low, true);
-  set("replace", db.items.filter(replSoon).length, true);
   set("stats", 0, false);
   var pending = (db.users||[]).filter(function(u){ return u.status === "pending"; }).length;
   if($("tc-users")) set("users", pending, true);
@@ -1424,7 +1433,7 @@ function renderTabCounts(){
 
 function renderAll(){
   renderCats(); renderSummary(); renderItems(); renderDaily();
-  renderBuy(); renderStock(); renderReplace(); renderStats(); renderUsers(); renderTabCounts();
+  renderBuy(); renderStock(); renderStats(); renderUsers(); renderTabCounts();
 }
 
 /* ───────── 탭 ───────── */
@@ -1432,7 +1441,7 @@ function goTab(name){
   document.querySelectorAll("nav.tabs button").forEach(function(x){
     x.setAttribute("aria-selected", x.dataset.tab===name ? "true" : "false");
   });
-  ["items","daily","buy","stock","replace","stats","users"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
+  ["items","daily","buy","stock","stats","users"].forEach(function(t){ $("tab-"+t).hidden = (t !== name); });
 }
 document.querySelectorAll("nav.tabs button").forEach(function(b){
   b.addEventListener("click", function(){ goTab(b.dataset.tab); });
@@ -1690,33 +1699,6 @@ $("btnPickNew").addEventListener("click", function(){
   closeAll();
   openModal(null);
   $("fDaily").checked = true;
-});
-
-/* ───────── 교체 관리 ───────── */
-$("replFilter").addEventListener("change", renderReplace);
-$("repllist").addEventListener("change", function(e){
-  var id = e.target.getAttribute("data-repl");
-  if(!id) return;
-  var it = db.items.filter(function(x){ return x.id === id; })[0];
-  if(!it) return;
-
-  if(e.target.checked){
-    it.prevDate = it.replaced || "";
-    it.prevNext = it.next || "";
-    it.replaced = ymd(today());
-    if(it.cycle) it.next = ymd(addDays(today(), +it.cycle||0));
-    push("upsert", it, it.name + " 교체 완료로 기록했습니다");
-  }else{
-    var back = it.prevDate ? fmtD(it.prevDate) : "없음";
-    if(!confirm("‘"+it.name+"’의 교체 완료를 취소할까요?\n\n교체일: "+fmtD(it.replaced)+" → "+back
-                +"\n다음 교체일: "+fmtD(it.next)+" → "+(it.prevNext ? fmtD(it.prevNext) : "없음"))){
-      renderReplace(); return;
-    }
-    it.replaced = it.prevDate || "";
-    it.next = it.prevNext || "";
-    it.prevDate = ""; it.prevNext = "";
-    push("upsert", it, it.name + " 교체 완료를 취소했습니다");
-  }
 });
 
 /* ───────── 재고 수량 조절 ───────── */
