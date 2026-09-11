@@ -385,7 +385,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v21</span>
+      <span class="ver">v22</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -1101,7 +1101,7 @@ function renderBuy(){
         + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
         + '<span class="memo">'+(+it.qty||0)+esc(it.unit||"")
         + (it.bought
-            ? ' · '+won((+it.price||0)*(+it.qty||0))+'원'+(it.vendor ? ' · '+esc(it.vendor) : '')+(it.date ? ' · '+fmtD(it.date) : '')
+            ? ' · '+won((+it.price||0)*(+it.qty||0))+'원'+(it.vendor ? ' · '+vendorLink(it.vendor, it.url) : '')+(it.date ? ' · '+fmtD(it.date) : '')
             : ' · 예상 '+won((+it.price||0)*(+it.qty||0))+'원')
         + '</span>' + alertBadges(it) + '</span>'
         + (it.bought ? '<button class="iconbtn buy on" data-info="'+it.id+'">정보</button>' : '')
@@ -1117,6 +1117,11 @@ function renderBuy(){
   $("buyText").textContent = done + " / " + all;
 }
 
+function vendorLink(vendor, url){
+  var name = vendor || "구매처";
+  if(!url || !/^https?:\/\//i.test(url)) return esc(vendor || "");
+  return '<a class="link" href="'+esc(url)+'" target="_blank" rel="noopener">'+esc(name)+'</a>';
+}
 function purchasesOf(id){
   return (db.purchases||[]).filter(function(r){ return String(r.itemId) === String(id); })
     .sort(function(a,b){ return String(b.ts).localeCompare(String(a.ts)); });
@@ -1328,7 +1333,7 @@ function renderStats(){
     hrows += hist.slice(0,10).map(function(r){
       return '<tr><td><span class="name">'+esc(r.name)+'</span>'
         + '<span class="memo">'+fmtD(r.date || String(r.ts).slice(0,10))
-        + (r.vendor ? ' · '+esc(r.vendor) : '')+'</span></td>'
+        + (r.vendor ? ' · '+vendorLink(r.vendor, r.url) : (r.url ? ' · '+vendorLink("", r.url) : ''))+'</span></td>'
         + '<td class="right num">'+won(r.total)+'원<span class="memo">'+(+r.qty||0)+'개</span></td></tr>';
     }).join("");
   }
@@ -1722,8 +1727,7 @@ function openInfo(it){
     $("infoList").innerHTML = row("상태", '<span class="badge buy">구매완료</span>')
       + row("구매일자", '<span class="num">'+fmtD(it.date)+'</span>')
       + row("금액", '<span class="num">'+won(it.price)+'원 × '+(+it.qty||0)+esc(it.unit||"")+' = '+won((+it.price||0)*(+it.qty||0))+'원</span>')
-      + row("구매처", esc(it.vendor || "—"))
-      + row("링크", it.url ? '<a class="link" href="'+esc(it.url)+'" target="_blank" rel="noopener">구매 페이지 열기</a>' : "—")
+      + row("구매처", (it.vendor || it.url) ? vendorLink(it.vendor, it.url) : "—")
       + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
     $("btnInfoEdit").textContent = "재구매 기록";
   }
@@ -1736,7 +1740,7 @@ function openInfo(it){
     var rows = hist.slice(0,6).map(function(r){
       return '<li><span class="k num">'+fmtD(r.date || String(r.ts).slice(0,10))+'</span>'
         + '<span class="v num">'+won(r.total)+'원'
-        + (r.vendor ? ' · '+esc(r.vendor) : '')
+        + (r.vendor ? ' · '+vendorLink(r.vendor, r.url) : (r.url ? ' · '+vendorLink("", r.url) : ''))
         + ' <span class="memo">'+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></span></li>';
     }).join("");
     $("infoList").innerHTML += '<li style="border-top:1px solid var(--line);padding-top:12px">'
