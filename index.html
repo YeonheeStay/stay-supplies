@@ -269,6 +269,9 @@
 
   .checklist input[type=checkbox].locked{accent-color:#8FA6C4;opacity:.55}
   .stepper button.locked{color:#9BB0CC}
+  .field input.locked,.field textarea.locked{background:#F7F9FB;color:var(--ink-2);
+                                             border-color:#D8E1EC;cursor:pointer}
+  .field input.locked:focus,.field textarea.locked:focus{outline-color:#1D62C4;border-color:#1D62C4}
   .lockpop{position:fixed;left:0;top:0;z-index:95;background:#1D62C4;color:#fff;
            padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.45;
            max-width:250px;text-align:center;pointer-events:none;white-space:normal;
@@ -415,7 +418,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v29</span>
+      <span class="ver">v31</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -1528,9 +1531,11 @@ function openModal(it){
   $("fDaily").checked = it ? !!it.daily : false;
   var master = isMaster();
   ["fName","fCatIn","fQty","fUnit","fStock","fPrice","fDate","fReplaced",
-   "fUrl","fCycle","fNext","fMemo","fDaily"].forEach(function(k){
-    $(k).disabled = !master;
+   "fUrl","fCycle","fNext","fMemo"].forEach(function(k){
+    $(k).readOnly = !master;           // disabled 와 달리 눌렀을 때 안내를 띄울 수 있음
+    $(k).classList.toggle("locked", !master);
   });
+  $("fDaily").classList.toggle("locked", !master);
   $("modalTitle").textContent = master ? (it ? "물품 수정" : "물품 추가") : "물품 정보";
   $("btnDelete").hidden = !it || !master;
   $("btnSave").hidden = !master;
@@ -1572,6 +1577,17 @@ document.querySelectorAll("[data-add]").forEach(function(b){
     if(!isMaster()){ lockedNotice(); return; }
     openModal(null);
   });
+});
+
+// 잠긴 상태에서 입력칸을 누르면 그 자리에 안내
+document.querySelector("#modal .body").addEventListener("click", function(e){
+  if(isMaster()) return;
+  if(e.target.matches("input, textarea, select, .btn, .iconbtn")) lockedNotice();
+});
+$("fDaily").addEventListener("change", function(){
+  if(isMaster()) return;
+  this.checked = !this.checked;
+  lockedNotice();
 });
 
 $("btnSave").addEventListener("click", function(){
@@ -1715,6 +1731,7 @@ $("btnHistDel").addEventListener("click", function(){
 $("infoList").addEventListener("click", function(e){
   var i = e.target.getAttribute("data-hist");
   if(i === null || i === undefined) return;
+  if(!isMaster()){ lockedNotice(); return; }
   var it = db.items.filter(function(x){ return x.id === buyId; })[0];
   if(!it) return;
   var r = purchasesOf(it.id)[+i];
@@ -1770,6 +1787,7 @@ $("pickList").addEventListener("click", function(e){
   push("upsert", it, it.name + " 을(를) 일일 점검에 넣었습니다");
 });
 $("btnPickNew").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   closeAll();
   openModal(null);
   $("fDaily").checked = true;
@@ -1892,6 +1910,7 @@ function openInfo(it){
   $("infoModal").classList.add("open");
 }
 $("btnInfoEdit").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   var it = db.items.filter(function(x){ return x.id === buyId; })[0];
   if(!it) return;
   closeAll();
@@ -2259,6 +2278,25 @@ $("btnAlarmGo").addEventListener("click", function(){
   closeAll(); goTab("items");
   $("fStatus").value = "late"; renderItems();
 });
+
+// 게스트가 변경 버튼을 누르면 다른 동작이 실행되기 전에 가로채 안내만 띄웁니다.
+// (팝업이 닫히거나 화면이 바뀌지 않습니다)
+var LOCK_SELECTOR = [
+  "[data-hist]","[data-mv]","[data-edit]","[data-renew]","[data-undo]",
+  "[data-daildel]","[data-add]","[data-pick]","[data-user]","[data-cat]",
+  "#btnAdd","#fabAdd","#btnDailyAdd","#btnAllCheck","#btnResetCheck",
+  "#btnInfoEdit","#btnPickNew","#btnPhotoPick","#btnPhotoDel",
+  "#btnSave","#btnDelete","#btnBuySave","#btnHistSave","#btnHistDel","#btnMoveNew"
+].join(",");
+
+document.addEventListener("click", function(e){
+  if(isMaster()) return;
+  if(!e.target.closest) return;
+  if(!e.target.closest(LOCK_SELECTOR)) return;
+  e.preventDefault();
+  e.stopPropagation();
+  lockedNotice();
+}, true);
 
 var lastPoint = null;
 document.addEventListener("pointerdown", function(e){
