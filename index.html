@@ -262,6 +262,11 @@
   .stchip.approved{background:var(--ok-bg);color:var(--ok)}
   .stchip.blocked{background:var(--late-bg);color:var(--late)}
 
+  body.guest .checklist input[type=checkbox]:disabled{opacity:.45}
+  body.guest .stepper button:disabled{opacity:.35;cursor:default}
+  .guestbar{display:none;background:#EAEEE8;border:1px solid var(--line);border-radius:var(--r);
+            padding:9px 13px;margin-bottom:12px;font-size:13px;color:var(--ink-2)}
+  body.guest .guestbar{display:block}
   .picklist{list-style:none;margin:0;padding:0;max-height:46vh;overflow-y:auto;
             border:1px solid var(--line);border-radius:9px}
   .picklist li{display:flex;align-items:center;gap:10px;padding:11px 12px;
@@ -392,7 +397,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v24</span>
+      <span class="ver">v25</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -414,6 +419,8 @@
     <button role="tab" aria-selected="false" data-tab="stats">총계<span class="tc" id="tc-stats"></span></button>
     <button role="tab" aria-selected="false" data-tab="users" id="tabUsers" hidden>계정 관리<span class="tc" id="tc-users"></span></button>
   </nav>
+
+  <div class="guestbar">게스트 계정입니다. 내용을 확인만 할 수 있고 수정은 관리자만 가능합니다.</div>
 
   <div class="focusbar" id="focusBar" hidden>
     <span id="focusText"></span>
@@ -998,7 +1005,7 @@ function rowHtml(it){
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
       + '<button class="iconbtn buy'+(it.bought?" on":"")+'" data-info="'+it.id+'">구매 정보</button>'
-      + (it.cycle ? (renewedToday(it)
+      + (it.cycle && isMaster() ? (renewedToday(it)
           ? '<button class="iconbtn done" data-undo="'+it.id+'">교체 완료됨</button>'
           : '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>') : '')
       + (isMaster() ? '<button class="iconbtn" data-mv="'+it.id+'">용도 이동</button>'
@@ -1110,7 +1117,8 @@ function renderBuy(){
       + '<span class="memo">구매 '+doneN+'/'+arr.length+'건 · '+won(sum)+'원</span></span></li>';
     arr.forEach(function(it){
       html += '<li class="'+(it.bought?"done":"")+'">'
-        + '<input type="checkbox" data-buy="'+it.id+'"'+(it.bought?" checked":"")+' aria-label="'+esc(it.name)+' 구매 완료">'
+        + '<input type="checkbox" data-buy="'+it.id+'"'+(it.bought?" checked":"")
+        + (isMaster()?"":" disabled")+' aria-label="'+esc(it.name)+' 구매 완료">'
         + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
         + '<span class="memo">'+(+it.qty||0)+esc(it.unit||"")
         + (it.bought
@@ -1211,10 +1219,10 @@ function renderStock(){
           + (usedRecently(it.id,30) ? ' · 최근 30일 '+usedRecently(it.id,30)+esc(it.unit||"")+' 소모' : '')
           + '</span></span>'
         + '<span class="stepper">'
-          + '<button type="button" data-dec="'+it.id+'" aria-label="수량 줄이기">−</button>'
+          + '<button type="button" data-dec="'+it.id+'"'+(isMaster()?"":" disabled")+' aria-label="수량 줄이기">−</button>'
           + '<span class="qv'+(isLow(it)?" low":(stockOf(it)===(+it.qty||0)?" full":""))+'">'
             +stockOf(it)+esc(it.unit||"")+'</span>'
-          + '<button type="button" data-inc="'+it.id+'" aria-label="수량 늘리기">+</button>'
+          + '<button type="button" data-inc="'+it.id+'"'+(isMaster()?"":" disabled")+' aria-label="수량 늘리기">+</button>'
         + '</span></li>';
     });
   });
@@ -1782,6 +1790,7 @@ function openInfo(it){
       + row("예상 금액", '<span class="num">'+won((+it.price||0)*(+it.qty||0))+'원</span>')
       + row("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>');
     $("btnInfoEdit").textContent = "구매 완료 처리";
+    $("btnInfoEdit").hidden = !isMaster();
   }else{
     $("infoList").innerHTML = row("상태", '<span class="badge buy">구매완료</span>')
       + row("구매일자", '<span class="num">'+fmtD(it.date)+'</span>')
@@ -1789,6 +1798,7 @@ function openInfo(it){
       + row("구매처", (it.vendor || it.url) ? vendorLink(it.vendor, it.url) : "—")
       + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
     $("btnInfoEdit").textContent = "재구매 기록";
+    $("btnInfoEdit").hidden = !isMaster();
   }
   if(it.photo){
     $("infoList").innerHTML += '<li><span class="k">사진</span><span class="v">'
@@ -2113,6 +2123,8 @@ function applyRole(){
   $("btnAdd").hidden = !master;
   $("fabAdd").style.display = master ? "" : "none";
   $("btnDailyAdd").hidden = !master;
+  $("btnAllCheck").hidden = !master;
+  $("btnResetCheck").hidden = !master;
   document.body.classList.toggle("guest", !master);
 }
 
