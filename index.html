@@ -269,7 +269,19 @@
 
   .checklist input[type=checkbox].locked{accent-color:#8FA6C4;opacity:.55}
   .stepper button.locked{color:#9BB0CC}
-  .toast.info{background:#1D62C4}
+  .lockpop{position:fixed;left:0;top:0;z-index:95;background:#1D62C4;color:#fff;
+           padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.45;
+           max-width:250px;text-align:center;pointer-events:none;white-space:normal;
+           transform:translate(-50%,-100%) scale(.96);opacity:0;
+           transition:opacity .16s ease, transform .16s ease;
+           box-shadow:0 8px 22px rgba(22,34,46,.28)}
+  .lockpop::after{content:"";position:absolute;left:50%;bottom:-6px;margin-left:-6px;
+                  border-left:6px solid transparent;border-right:6px solid transparent;
+                  border-top:6px solid #1D62C4}
+  .lockpop.show{opacity:1;transform:translate(-50%,-100%) scale(1)}
+  .lockpop.below{transform:translate(-50%,0) scale(.96)}
+  .lockpop.below.show{transform:translate(-50%,0) scale(1)}
+  .lockpop.below::after{top:-6px;bottom:auto;border-top:0;border-bottom:6px solid #1D62C4}
   .guestbar{display:none;background:#E4EDFA;border:1px solid #B8C9E4;border-radius:var(--r);
             padding:9px 13px;margin-bottom:12px;font-size:13px;color:#17529F;font-weight:600}
   body.guest .guestbar{display:block}
@@ -403,7 +415,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v28</span>
+      <span class="ver">v29</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -426,7 +438,7 @@
     <button role="tab" aria-selected="false" data-tab="users" id="tabUsers" hidden>계정 관리<span class="tc" id="tc-users"></span></button>
   </nav>
 
-  <div class="guestbar">보기 전용 계정입니다. 내용 확인은 자유롭게 하실 수 있고, 변경은 관리자만 가능합니다.</div>
+  <div class="guestbar">보기 전용 계정입니다. 변경은 관리자에게 요청해 주세요.</div>
 
   <div class="focusbar" id="focusBar" hidden>
     <span id="focusText"></span>
@@ -724,6 +736,8 @@
 </div>
 
 <button class="fab" id="fabAdd" type="button"><span>+</span> 물품 추가</button>
+
+<div class="lockpop" id="lockPop">보기 전용 계정입니다.<br>변경은 관리자에게 요청해 주세요.</div>
 
 <div class="toast" id="toast"></div>
 
@@ -2246,8 +2260,27 @@ $("btnAlarmGo").addEventListener("click", function(){
   $("fStatus").value = "late"; renderItems();
 });
 
+var lastPoint = null;
+document.addEventListener("pointerdown", function(e){
+  lastPoint = {x: e.clientX, y: e.clientY};
+}, true);
+
 function lockedNotice(){
-  toast("보기 전용 계정입니다. 변경은 관리자에게 요청해 주세요", "info");
+  var el = $("lockPop");
+  var p = lastPoint || {x: window.innerWidth/2, y: window.innerHeight/2};
+  el.classList.remove("below");
+  el.classList.add("show");
+  var w = el.offsetWidth, h = el.offsetHeight;
+  var x = Math.min(Math.max(p.x, w/2 + 10), window.innerWidth - w/2 - 10);
+  var y = p.y - 14;
+  if(y - h < 10){                 // 화면 위쪽이면 아래로 뒤집어 표시
+    el.classList.add("below");
+    y = p.y + 16;
+  }
+  el.style.left = x + "px";
+  el.style.top = y + "px";
+  clearTimeout(lockedNotice._t);
+  lockedNotice._t = setTimeout(function(){ el.classList.remove("show"); }, 2400);
 }
 function toast(msg, kind){
   var t = $("toast");
