@@ -119,12 +119,11 @@
   .badge.buy{color:#1D62C4;background:#E4EDFA}
   .badge.nobuy{color:var(--ink-3);background:var(--line-2)}
   .buyname{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
-  .namecell{display:block;max-width:100%}
-  .namecell .nm{display:block;font-weight:600;word-break:keep-all;line-height:1.35}
-  .namecell .bdgs{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin-top:5px}
-  .namecell .bdgs:empty{display:none}
+  .namecell{display:grid;grid-template-columns:130px minmax(0,1fr);gap:10px;align-items:center}
+  .namecell .nm{font-weight:600;word-break:keep-all;line-height:1.35}
+  .namecell .bdgs{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0}
   .namecell .badge{flex:none;max-width:100%}
-  #tbl th:first-child,#tbl td:first-child{width:250px;max-width:250px}
+  #tbl th:first-child,#tbl td:first-child{width:300px;max-width:300px;overflow:hidden}
   #tbl td:first-child .memo{margin-top:5px}
   @keyframes dim{0%,100%{opacity:1}50%{opacity:.3}}
   .badge.low{color:#fff;background:var(--late);animation:dim 1.3s ease-in-out infinite}
@@ -472,7 +471,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v38</span>
+      <span class="ver">v39</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -824,7 +823,7 @@
 var SERVER_URL = "";
 
 /* 휴대폰이 예전 화면을 붙들고 있지 않도록, 새 버전이 올라오면 한 번 자동 새로고침합니다 */
-var APP_VER = "v38";
+var APP_VER = "v39";
 setTimeout(function(){
   try{
     if(sessionStorage.getItem("ver-reloaded") === APP_VER) return;
