@@ -385,7 +385,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v22</span>
+      <span class="ver">v23</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -647,6 +647,33 @@
     <footer>
       <button class="btn ghost" data-close>닫기</button>
       <button class="btn" id="btnInfoEdit">정보 수정</button>
+    </footer>
+  </div>
+</div>
+
+<div class="scrim" id="histModal">
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="histTitle" style="max-width:440px">
+    <header><h2 id="histTitle">구매 이력 수정</h2><button type="button" data-close aria-label="닫기">&times;</button></header>
+    <div class="body">
+      <p class="movehead"><strong id="histName"></strong></p>
+      <div class="f2">
+        <div class="field"><label for="hDate">구매일자</label><input id="hDate" type="date"></div>
+        <div class="field"><label for="hQty">수량</label><input id="hQty" type="number" min="0" step="1"></div>
+      </div>
+      <div class="field">
+        <label for="hPrice">개당 금액 (원)</label>
+        <input id="hPrice" type="number" min="0" step="100">
+        <p class="hint" id="hTotal">총액 0원</p>
+      </div>
+      <div class="field"><label for="hVendor">구매처</label><input id="hVendor" placeholder="예: 쿠팡"></div>
+      <div class="field" style="margin-bottom:0">
+        <label for="hUrl">구매 사이트 링크</label><input id="hUrl" type="url" placeholder="https://">
+      </div>
+    </div>
+    <footer>
+      <button class="btn danger" id="btnHistDel">삭제</button>
+      <button class="btn ghost" data-close>취소</button>
+      <button class="btn" id="btnHistSave">저장</button>
     </footer>
   </div>
 </div>
@@ -1412,7 +1439,7 @@ document.querySelectorAll("nav.tabs button").forEach(function(b){
 });
 
 /* ───────── 모달 ───────── */
-function closeAll(){ ["modal","moveModal","buyModal","infoModal","pickModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
+function closeAll(){ ["modal","moveModal","buyModal","infoModal","pickModal","histModal","alarm"].forEach(function(id){ $(id).classList.remove("open"); }); }
 // 눌러서 뗀 지점이 모두 바깥 배경일 때만 닫습니다.
 // (숫자 입력칸의 화살표를 누르는 도중 닫히던 문제 방지)
 var downOnScrim = false;
@@ -1565,6 +1592,56 @@ $("tbody").addEventListener("click", function(e){
 
 ["q","fCat","fStatus"].forEach(function(id){ $(id).addEventListener("input", renderItems); });
 $("fGroup").addEventListener("change", renderItems);
+
+/* ───────── 구매 이력 수정 ───────── */
+var histRec = null;
+
+function openHist(r, itemName){
+  histRec = r;
+  $("histName").textContent = itemName + " · 기록 " + fmtD(String(r.ts).slice(0,10));
+  $("hDate").value = (r.date ? String(r.date).slice(0,10) : "");
+  $("hQty").value = +r.qty || 0;
+  $("hPrice").value = +r.unitPrice || 0;
+  $("hVendor").value = r.vendor || "";
+  $("hUrl").value = r.url || "";
+  updateHistTotal();
+  $("histModal").classList.add("open");
+}
+function updateHistTotal(){
+  $("hTotal").textContent = "총액 " + won((+$("hPrice").value||0) * (+$("hQty").value||0)) + "원";
+}
+$("hPrice").addEventListener("input", updateHistTotal);
+$("hQty").addEventListener("input", updateHistTotal);
+
+$("btnHistSave").addEventListener("click", function(){
+  if(!histRec) return;
+  closeAll();
+  push("editPurchase", {
+    hid: histRec.hid || "", ts: histRec.ts,
+    date: $("hDate").value, qty: +$("hQty").value || 0,
+    unitPrice: +$("hPrice").value || 0,
+    vendor: $("hVendor").value.trim(), url: $("hUrl").value.trim()
+  }, "구매 이력을 수정했습니다");
+});
+
+$("btnHistDel").addEventListener("click", function(){
+  if(!histRec) return;
+  if(!confirm("이 구매 기록을 지울까요?\n\n" + fmtD(histRec.date || String(histRec.ts).slice(0,10))
+              + " · " + won(histRec.total) + "원\n\n남은 이력 중 가장 최근 것으로 물품 정보가 다시 맞춰집니다.")) return;
+  closeAll();
+  push("removePurchase", {hid: histRec.hid || "", ts: histRec.ts}, "구매 기록을 지웠습니다");
+});
+
+$("infoList").addEventListener("click", function(e){
+  var i = e.target.getAttribute("data-hist");
+  if(i === null || i === undefined) return;
+  var it = db.items.filter(function(x){ return x.id === buyId; })[0];
+  if(!it) return;
+  var r = purchasesOf(it.id)[+i];
+  if(!r) return;
+  closeAll();
+  openHist(r, it.name);
+});
 
 /* ───────── 일일 점검 물품 고르기 ───────── */
 function openPick(){
@@ -1737,11 +1814,13 @@ function openInfo(it){
   }
   var hist = purchasesOf(it.id);
   if(hist.length){
-    var rows = hist.slice(0,6).map(function(r){
+    var rows = hist.slice(0,8).map(function(r, i){
       return '<li><span class="k num">'+fmtD(r.date || String(r.ts).slice(0,10))+'</span>'
         + '<span class="v num">'+won(r.total)+'원'
         + (r.vendor ? ' · '+vendorLink(r.vendor, r.url) : (r.url ? ' · '+vendorLink("", r.url) : ''))
-        + ' <span class="memo">'+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></span></li>';
+        + ' <span class="memo">'+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></span>'
+        + (isMaster() ? '<button class="iconbtn" data-hist="'+i+'">수정</button>' : '')
+        + '</li>';
     }).join("");
     $("infoList").innerHTML += '<li style="border-top:1px solid var(--line);padding-top:12px">'
       + '<span class="k">구매 이력</span><span class="v">'+hist.length+'회 · 누적 '+won(spentOn(it.id))+'원</span></li>'
