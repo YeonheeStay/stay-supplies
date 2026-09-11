@@ -272,6 +272,9 @@
   .field input.locked,.field textarea.locked{background:#F7F9FB;color:var(--ink-2);
                                              border-color:#D8E1EC;cursor:pointer}
   .field input.locked:focus,.field textarea.locked:focus{outline-color:#1D62C4;border-color:#1D62C4}
+  @media (max-width:760px), (orientation:landscape) and (max-height:540px){
+    .guestbar{font-size:12.5px}
+  }
   .lockpop{position:fixed;left:0;top:0;z-index:95;background:#1D62C4;color:#fff;
            padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;line-height:1.45;
            max-width:250px;text-align:center;pointer-events:none;white-space:normal;
@@ -418,7 +421,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v31</span>
+      <span class="ver">v32</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -2282,7 +2285,7 @@ $("btnAlarmGo").addEventListener("click", function(){
 // 게스트가 변경 버튼을 누르면 다른 동작이 실행되기 전에 가로채 안내만 띄웁니다.
 // (팝업이 닫히거나 화면이 바뀌지 않습니다)
 var LOCK_SELECTOR = [
-  "[data-hist]","[data-mv]","[data-edit]","[data-renew]","[data-undo]",
+  "[data-hist]","[data-mv]","[data-renew]","[data-undo]",
   "[data-daildel]","[data-add]","[data-pick]","[data-user]","[data-cat]",
   "#btnAdd","#fabAdd","#btnDailyAdd","#btnAllCheck","#btnResetCheck",
   "#btnInfoEdit","#btnPickNew","#btnPhotoPick","#btnPhotoDel",
@@ -2303,8 +2306,14 @@ document.addEventListener("pointerdown", function(e){
   lastPoint = {x: e.clientX, y: e.clientY};
 }, true);
 
+function isMobileView(){
+  return window.matchMedia("(max-width:760px), (orientation:landscape) and (max-height:540px)").matches;
+}
 function lockedNotice(){
   var el = $("lockPop");
+  el.innerHTML = isMobileView()
+    ? "관리자에게 문의"
+    : "보기 전용 계정입니다.<br>변경은 관리자에게 요청해 주세요.";
   var p = lastPoint || {x: window.innerWidth/2, y: window.innerHeight/2};
   el.classList.remove("below");
   el.classList.add("show");
