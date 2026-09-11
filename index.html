@@ -267,10 +267,11 @@
   .stchip.approved{background:var(--ok-bg);color:var(--ok)}
   .stchip.blocked{background:var(--late-bg);color:var(--late)}
 
-  body.guest .checklist input[type=checkbox]:disabled{opacity:.45}
-  body.guest .stepper button:disabled{opacity:.35;cursor:default}
-  .guestbar{display:none;background:#EAEEE8;border:1px solid var(--line);border-radius:var(--r);
-            padding:9px 13px;margin-bottom:12px;font-size:13px;color:var(--ink-2)}
+  .checklist input[type=checkbox].locked{accent-color:#8FA6C4;opacity:.55}
+  .stepper button.locked{color:#9BB0CC}
+  .toast.info{background:#1D62C4}
+  .guestbar{display:none;background:#E4EDFA;border:1px solid #B8C9E4;border-radius:var(--r);
+            padding:9px 13px;margin-bottom:12px;font-size:13px;color:#17529F;font-weight:600}
   body.guest .guestbar{display:block}
   .picklist{list-style:none;margin:0;padding:0;max-height:46vh;overflow-y:auto;
             border:1px solid var(--line);border-radius:9px}
@@ -402,7 +403,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v26</span>
+      <span class="ver">v27</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -425,7 +426,7 @@
     <button role="tab" aria-selected="false" data-tab="users" id="tabUsers" hidden>계정 관리<span class="tc" id="tc-users"></span></button>
   </nav>
 
-  <div class="guestbar">게스트 계정입니다. 내용을 확인만 할 수 있고 수정은 관리자만 가능합니다.</div>
+  <div class="guestbar">보기 전용 계정입니다. 내용 확인은 자유롭게 하실 수 있고, 변경은 관리자만 가능합니다.</div>
 
   <div class="focusbar" id="focusBar" hidden>
     <span id="focusText"></span>
@@ -1123,7 +1124,7 @@ function renderBuy(){
     arr.forEach(function(it){
       html += '<li class="'+(it.bought?"done":"")+'">'
         + '<input type="checkbox" data-buy="'+it.id+'"'+(it.bought?" checked":"")
-        + (isMaster()?"":" disabled")+' aria-label="'+esc(it.name)+' 구매 완료">'
+        + (isMaster()?"":' class="locked"')+' aria-label="'+esc(it.name)+' 구매 완료">'
         + '<span class="t"><span class="name">'+esc(it.name)+'</span>'
         + '<span class="memo">'+(+it.qty||0)+esc(it.unit||"")
         + (it.bought
@@ -1226,10 +1227,10 @@ function renderStock(){
           + (usedRecently(it.id,30) ? ' · 최근 30일 '+usedRecently(it.id,30)+esc(it.unit||"")+' 소모' : '')
           + '</span></span>'
         + '<span class="stepper">'
-          + '<button type="button" data-dec="'+it.id+'"'+(isMaster()?"":" disabled")+' aria-label="수량 줄이기">−</button>'
+          + '<button type="button" data-dec="'+it.id+'"'+(isMaster()?"":' class="locked"')+' aria-label="수량 줄이기">−</button>'
           + '<span class="qv'+(isLow(it)?" low":(stockOf(it)===(+it.qty||0)?" full":""))+'">'
             +stockOf(it)+esc(it.unit||"")+'</span>'
-          + '<button type="button" data-inc="'+it.id+'"'+(isMaster()?"":" disabled")+' aria-label="수량 늘리기">+</button>'
+          + '<button type="button" data-inc="'+it.id+'"'+(isMaster()?"":' class="locked"')+' aria-label="수량 늘리기">+</button>'
         + '</span></li>';
     });
   });
@@ -1738,6 +1739,7 @@ $("btnPickNew").addEventListener("click", function(){
 /* ───────── 재고 수량 조절 ───────── */
 var qtyTimers = {}, qtyFrom = {};
 function changeQty(id, delta){
+  if(!isMaster()){ lockedNotice(); return; }
   var it = db.items.filter(function(x){ return x.id === id; })[0];
   if(!it) return;
   var cur = stockOf(it);
@@ -1869,6 +1871,7 @@ $("buylist").addEventListener("click", function(e){
 $("buylist").addEventListener("change", function(e){
   var id = e.target.getAttribute("data-buy");
   if(!id) return;
+  if(!isMaster()){ lockedNotice(); renderBuy(); return; }
   var it = db.items.filter(function(x){ return x.id===id; })[0];
   if(!it) return;
   if(e.target.checked){
@@ -1932,6 +1935,7 @@ $("checklist").addEventListener("click", function(e){
 $("checklist").addEventListener("change", function(e){
   var id = e.target.getAttribute("data-check");
   if(!id) return;
+  if(!isMaster()){ lockedNotice(); renderDaily(); return; }
   var key = ymd(today());
   var arr = db.checks[key] || [];
   if(e.target.checked){ if(arr.indexOf(id)<0) arr.push(id); }
@@ -1940,11 +1944,13 @@ $("checklist").addEventListener("change", function(e){
   push("setCheck", {date:key, id:id, on:e.target.checked});
 });
 $("btnAllCheck").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   var key = ymd(today());
   db.checks[key] = db.items.filter(function(i){ return i.daily; }).map(function(i){ return i.id; });
   push("setChecks", {date:key, ids:db.checks[key]}, "오늘 점검을 모두 완료로 표시했습니다");
 });
 $("btnResetCheck").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   var key = ymd(today());
   db.checks[key] = [];
   push("setChecks", {date:key, ids:[]});
@@ -2149,8 +2155,7 @@ function applyRole(){
   $("btnAdd").hidden = !master;
   $("fabAdd").style.display = master ? "" : "none";
   $("btnDailyAdd").hidden = !master;
-  $("btnAllCheck").hidden = !master;
-  $("btnResetCheck").hidden = !master;
+
   document.body.classList.toggle("guest", !master);
 }
 
@@ -2217,11 +2222,15 @@ $("btnAlarmGo").addEventListener("click", function(){
   $("fStatus").value = "late"; renderItems();
 });
 
-function toast(msg){
+function lockedNotice(){
+  toast("보기 전용 계정입니다. 변경은 관리자에게 요청해 주세요", "info");
+}
+function toast(msg, kind){
   var t = $("toast");
-  t.textContent = msg; t.classList.add("show");
+  t.textContent = msg;
+  t.className = "toast show" + (kind ? " " + kind : "");
   clearTimeout(toast._t);
-  toast._t = setTimeout(function(){ t.classList.remove("show"); }, 3000);
+  toast._t = setTimeout(function(){ t.className = "toast"; }, 3000);
 }
 
 /* ───────── 시작 ───────── */
