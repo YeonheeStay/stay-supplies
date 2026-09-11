@@ -403,7 +403,7 @@
   <div class="wrap">
     <div class="brand">
       <h1>연희스테이 비품 관리</h1>
-      <span class="ver">v27</span>
+      <span class="ver">v28</span>
       <span class="sync" id="syncPill">연결 확인 중</span>
       <span class="who" id="whoPill" hidden></span>
       <div class="top-actions">
@@ -1011,11 +1011,11 @@ function rowHtml(it){
     + '<td class="desktop-only"><span class="badge '+s.key+'">'+s.label+'</span></td>'
     + '<td class="right"><div class="rowbtns">'
       + '<button class="iconbtn buy'+(it.bought?" on":"")+'" data-info="'+it.id+'">구매 정보</button>'
-      + (it.cycle && isMaster() ? (renewedToday(it)
+      + (it.cycle ? (renewedToday(it)
           ? '<button class="iconbtn done" data-undo="'+it.id+'">교체 완료됨</button>'
           : '<button class="iconbtn" data-renew="'+it.id+'">교체 완료</button>') : '')
-      + (isMaster() ? '<button class="iconbtn" data-mv="'+it.id+'">용도 이동</button>'
-                    + '<button class="iconbtn" data-edit="'+it.id+'">수정</button>' : '')
+      + '<button class="iconbtn" data-mv="'+it.id+'">용도 이동</button>'
+      + '<button class="iconbtn" data-edit="'+it.id+'">수정</button>'
     + '</div></td></tr>';
 }
 
@@ -1088,7 +1088,7 @@ function renderDaily(){
       + '<span class="memo">'+esc(it.cat||"")+(it.memo?" · "+esc(it.memo):"")+'</span></span>'
       + '<span class="qty num">'+(+it.qty||0)+esc(it.unit||"")+'</span>'
       + alertBadges(it)
-      + (isMaster() ? '<button class="iconbtn" data-daildel="'+it.id+'">삭제</button>' : '')
+      + '<button class="iconbtn" data-daildel="'+it.id+'">삭제</button>'
       + '</li>';
   }).join("");
   $("emptyDaily").hidden = list.length > 0;
@@ -1512,12 +1512,24 @@ function openModal(it){
   $("fNext").value  = it ? (it.next||"") : "";
   $("fMemo").value  = it ? (it.memo||"") : "";
   $("fDaily").checked = it ? !!it.daily : false;
-  $("btnDelete").hidden = !it || !isMaster();
+  var master = isMaster();
+  ["fName","fCatIn","fQty","fUnit","fStock","fPrice","fDate","fReplaced",
+   "fUrl","fCycle","fNext","fMemo","fDaily"].forEach(function(k){
+    $(k).disabled = !master;
+  });
+  $("modalTitle").textContent = master ? (it ? "물품 수정" : "물품 추가") : "물품 정보";
+  $("btnDelete").hidden = !it || !master;
+  $("btnSave").hidden = !master;
+  $("btnPhotoPick").hidden = !master;
+  document.querySelector("#modal footer [data-close]").textContent = master ? "취소" : "닫기";
   showPhoto(it ? (it.photo||"") : "");
   $("modal").classList.add("open");
   setTimeout(function(){ $("fName").focus(); }, 30);
 }
-$("btnAdd").addEventListener("click", function(){ openModal(null); });
+$("btnAdd").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
+  openModal(null);
+});
 
 // 교체 주기와 다음 교체일을 서로 맞춰줌 (기준은 구매일, 없으면 오늘)
 function cycleBase(){
@@ -1537,12 +1549,19 @@ $("fNext").addEventListener("input", function(){
   var d = Math.round((parse(n) - cycleBase()) / 86400000);
   $("fCycle").value = d > 0 ? d : 0;
 });
-$("fabAdd").addEventListener("click", function(){ goTab("items"); openModal(null); });
+$("fabAdd").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
+  goTab("items"); openModal(null);
+});
 document.querySelectorAll("[data-add]").forEach(function(b){
-  b.addEventListener("click", function(){ openModal(null); });
+  b.addEventListener("click", function(){
+    if(!isMaster()){ lockedNotice(); return; }
+    openModal(null);
+  });
 });
 
 $("btnSave").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   var name = $("fName").value.trim();
   if(!name){ $("fName").focus(); toast("물품 이름을 입력해 주세요"); return; }
   var id = $("fId").value;
@@ -1611,6 +1630,7 @@ $("tbody").addEventListener("click", function(e){
   }
   var un = e.target.getAttribute("data-undo");
   if(un){
+    if(!isMaster()){ lockedNotice(); return; }
     var it4 = db.items.filter(function(x){ return x.id===un; })[0];
     if(!it4) return;
     var back = it4.prevDate ? fmtD(it4.prevDate) : "없음";
@@ -1624,6 +1644,7 @@ $("tbody").addEventListener("click", function(e){
   }
   var rn = e.target.getAttribute("data-renew");
   if(rn){
+    if(!isMaster()){ lockedNotice(); return; }
     var it2 = db.items.filter(function(x){ return x.id===rn; })[0];
     if(!it2) return;
     it2.prevDate = it2.replaced || "";
@@ -1641,6 +1662,7 @@ $("fGroup").addEventListener("change", renderItems);
 var histRec = null;
 
 function openHist(r, itemName){
+  if(!isMaster()){ lockedNotice(); return; }
   histRec = r;
   $("histName").textContent = itemName + " · 기록 " + fmtD(String(r.ts).slice(0,10));
   $("hDate").value = (r.date ? String(r.date).slice(0,10) : "");
@@ -1720,7 +1742,10 @@ function renderPick(){
 }
 $("pickQ").addEventListener("input", renderPick);
 $("pickQ").addEventListener("focus", renderPick);
-$("btnDailyAdd").addEventListener("click", openPick);
+$("btnDailyAdd").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
+  openPick();
+});
 $("pickList").addEventListener("click", function(e){
   var li = e.target.closest ? e.target.closest("[data-pick]") : null;
   if(!li) return;
@@ -1771,6 +1796,7 @@ $("stockFilter").addEventListener("change", renderStock);
 var buyId = null;
 
 function openBuy(it){
+  if(!isMaster()){ lockedNotice(); return; }
   buyId = it.id;
   $("buyTitle").textContent = it.bought ? "구매 정보 수정" : "구매 정보 입력";
   $("btnBuySave").textContent = it.bought ? "저장" : "구매 완료로 저장";
@@ -1818,7 +1844,6 @@ function openInfo(it){
       + row("예상 금액", '<span class="num">'+won((+it.price||0)*(+it.qty||0))+'원</span>')
       + row("수량", '<span class="num">'+(+it.qty||0)+esc(it.unit||"")+'</span>');
     $("btnInfoEdit").textContent = "구매 완료 처리";
-    $("btnInfoEdit").hidden = !isMaster();
   }else{
     $("infoList").innerHTML = row("상태", '<span class="badge buy">구매완료</span>')
       + row("구매일자", '<span class="num">'+fmtD(it.date)+'</span>')
@@ -1826,7 +1851,6 @@ function openInfo(it){
       + row("구매처", (it.vendor || it.url) ? vendorLink(it.vendor, it.url) : "—")
       + row("용도", '<span class="cat">'+esc(it.cat||"미분류")+'</span>');
     $("btnInfoEdit").textContent = "재구매 기록";
-    $("btnInfoEdit").hidden = !isMaster();
   }
   if(it.photo){
     $("infoList").innerHTML += '<li><span class="k">사진</span><span class="v">'
@@ -1839,7 +1863,7 @@ function openInfo(it){
         + '<span class="v num">'+won(r.total)+'원'
         + (r.vendor ? ' · '+vendorLink(r.vendor, r.url) : (r.url ? ' · '+vendorLink("", r.url) : ''))
         + ' <span class="memo">'+(+r.qty||0)+'개 × '+won(r.unitPrice)+'원</span></span>'
-        + (isMaster() ? '<button class="iconbtn" data-hist="'+i+'">수정</button>' : '')
+        + '<button class="iconbtn" data-hist="'+i+'">수정</button>'
         + '</li>';
     }).join("");
     $("infoList").innerHTML += '<li style="border-top:1px solid var(--line);padding-top:12px">'
@@ -1888,6 +1912,7 @@ $("buylist").addEventListener("change", function(e){
 /* ───────── 용도 이동 ───────── */
 var moveId = null;
 function openMove(it){
+  if(!isMaster()){ lockedNotice(); return; }
   moveId = it.id;
   $("moveName").textContent = it.name;
   var cats = {};
@@ -1924,6 +1949,7 @@ $("moveNew").addEventListener("keydown", function(e){
 $("checklist").addEventListener("click", function(e){
   var id = e.target.getAttribute("data-daildel");
   if(!id) return;
+  if(!isMaster()){ lockedNotice(); return; }
   var it = db.items.filter(function(x){ return x.id === id; })[0];
   if(!it) return;
   if(!confirm("‘"+it.name+"’을(를) 일일 점검에서 빼시겠어요?\n\n물품 리스트에는 그대로 남고, 수정 화면의 ‘일일 점검 대상’ 체크만 해제됩니다.")) return;
@@ -1982,7 +2008,7 @@ function showPhoto(url){
   if(url){
     $("photoImg").src = url;
     $("photoBox").hidden = false;
-    $("btnPhotoDel").hidden = false;
+    $("btnPhotoDel").hidden = !isMaster();
     $("photoHint").textContent = "누르면 원본 크기로 열립니다.";
   }else{
     $("photoBox").hidden = true;
@@ -1996,10 +2022,12 @@ $("photoImg").addEventListener("click", function(){
   if(this.src) window.open(this.src, "_blank", "noopener");
 });
 $("btnPhotoPick").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   if(!$("fId").value){ toast("먼저 물품을 저장한 뒤 사진을 올려주세요"); return; }
   $("fPhotoFile").click();
 });
 $("btnPhotoDel").addEventListener("click", function(){
+  if(!isMaster()){ lockedNotice(); return; }
   var it = db.items.filter(function(x){ return x.id === $("fId").value; })[0];
   if(!it || !confirm("첨부한 사진을 지울까요?")) return;
   it.photo = "";
@@ -2151,10 +2179,6 @@ function applyRole(){
   $("whoPill").hidden = !me;
   if(me) $("whoPill").innerHTML = '<b>'+esc(me.name||me.id)+'</b> · '+(master ? "관리자" : "게스트");
   $("tabUsers").hidden = !master;
-  document.querySelectorAll("[data-add]").forEach(function(b){ b.hidden = !master; });
-  $("btnAdd").hidden = !master;
-  $("fabAdd").style.display = master ? "" : "none";
-  $("btnDailyAdd").hidden = !master;
 
   document.body.classList.toggle("guest", !master);
 }
